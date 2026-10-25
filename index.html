@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1c2f6e">
+<title>Mein Lernheft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Caveat:wght@600;700&family=Playpen+Sans:wght@500;700;800&display=swap">
+<style>*,*::before,*::after{box-sizing:border-box}html{-webkit-text-size-adjust:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: one centred exercise-book column on 5-mm squared paper; slim header, then the current view as cards */
+:root{
+  --paper:#fbfcf8; --grid:#e0e8f2; --surface:#ffffff; --line:#d4dbe7; --tint:#eef2fa;
+  --ink:#1c2f6e; --ink-soft:#5b678c; --red:#cf2338; --ok:#1d8048; --label-ink:#1c2f6e; --label:#ffffff;
+  --c-mathe:#2c6bd3; --c-deutsch:#d23b3b; --c-hsu:#2e9558; --c-englisch:#d99a08; --c-religion:#8550c2; --c-musik:#df7026; --c-sonst:#76808f;
+  --shadow:0 1px 0 rgba(28,47,110,.06),0 8px 20px -12px rgba(28,47,110,.45);
+  --f-display:"Playpen Sans","Comic Neue","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --f-hand:"Caveat","Segoe Print","Bradley Hand",cursive;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#1a2824; --grid:#22342e; --surface:#22332d; --line:#36493f; --tint:#2a3d36;
+  --ink:#eef2e8; --ink-soft:#a9b9af; --red:#ff7676; --ok:#62d194;
+  --c-mathe:#4f8ae8; --c-deutsch:#e45a5a; --c-hsu:#3eae6d; --c-englisch:#e7b42c; --c-religion:#a07ae0; --c-musik:#ec8a45; --c-sonst:#8c96a4;
+  --shadow:0 8px 22px -12px rgba(0,0,0,.7); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --paper:#1a2824; --grid:#22342e; --surface:#22332d; --line:#36493f; --tint:#2a3d36;
+  --ink:#eef2e8; --ink-soft:#a9b9af; --red:#ff7676; --ok:#62d194;
+  --c-mathe:#4f8ae8; --c-deutsch:#e45a5a; --c-hsu:#3eae6d; --c-englisch:#e7b42c; --c-religion:#a07ae0; --c-musik:#ec8a45; --c-sonst:#8c96a4;
+  --shadow:0 8px 22px -12px rgba(0,0,0,.7); color-scheme:dark;}
+
+body{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-block:14px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(1.6rem,4.5vw,2.1rem);font-weight:800}
+h2{font-size:1.35rem;font-weight:700}
+h3{font-size:1.1rem;font-weight:700}
+p{margin:0}
+.muted{color:var(--ink-soft)}
+.small{font-size:.88rem}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--c-mathe);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;font-size:1.15rem;background:none;border:0;padding:0}
+.brand-mark{width:30px;height:36px;border-radius:4px 7px 7px 4px;background:var(--c-mathe);position:relative;box-shadow:var(--shadow)}
+.brand-mark::after{content:"";position:absolute;left:6px;right:5px;top:8px;height:10px;background:var(--label);border-radius:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;border:2px solid var(--ink);background:var(--surface);padding:10px 20px;font-weight:700;min-height:46px;transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.red{border-color:var(--red);color:var(--red)}
+.btn.ghost{border-color:transparent;background:transparent;text-decoration:underline;text-underline-offset:3px;padding-inline:8px}
+.btn.sm{min-height:36px;padding:6px 14px;font-size:.92rem}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.notice{border-left:4px solid var(--c-englisch);background:var(--tint);padding:12px 14px;border-radius:8px}
+.err{border-left:4px solid var(--red);background:var(--tint);padding:12px 14px;border-radius:8px}
+
+/* Hefte */
+.hefte{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+.heft{position:relative;aspect-ratio:3/4;max-width:100%;border:0;border-radius:6px 12px 12px 6px;background:var(--c);box-shadow:var(--shadow);padding:0;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:transform .15s}
+.heft::before{content:"";position:absolute;left:10px;top:0;bottom:0;width:2px;background:rgba(255,255,255,.35)}
+.heft:hover{transform:translateY(-3px) rotate(-1deg)}
+.heft-label{background:var(--label);color:var(--label-ink);width:76%;border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;text-align:left}
+.heft-label small{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;opacity:.65}
+.heft-label b{font-family:var(--f-display);font-size:1.05rem;border-bottom:1px solid rgba(28,47,110,.25);padding-bottom:2px}
+.heft-label span{font-size:.82rem}
+
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:left;width:100%;min-width:0}
+button.item:hover{border-color:var(--ink)}
+.item .grow{flex:1;min-width:0}
+.chip{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--c,var(--c-sonst));color:#fff;white-space:nowrap}
+.tchip{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--tint);color:var(--ink-soft)}
+.mini-stamp{font-family:var(--f-hand);font-weight:700;color:var(--red);border:2px solid var(--red);border-radius:50%;width:42px;height:42px;display:grid;place-items:center;font-size:1.5rem;flex:none;transform:rotate(-8deg)}
+.subjhead{border-radius:var(--r);background:var(--c);color:#fff;padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.subjhead h1{color:#fff}
+
+/* Schulaufgabe */
+.probe-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px}
+.probe-head div{border-bottom:1px solid var(--line);padding-bottom:4px}
+.probe-head small{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+.probe-head b{font-family:var(--f-hand);font-size:1.45rem;line-height:1.1}
+.dots{display:flex;flex-wrap:wrap;gap:8px}
+.dot{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:var(--surface);font-weight:700;font-size:.9rem}
+.dot.done{background:var(--tint);border-color:var(--ink-soft)}
+.dot.cur{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.aufg{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.aufg .anr{font-family:var(--f-display);font-weight:800;font-size:1.2rem}
+.aufg .pts{font-family:var(--f-hand);font-size:1.3rem;color:var(--red)}
+.qtext{font-size:1.2rem;line-height:1.55}
+.opts{display:grid;gap:10px}
+.opt{display:flex;gap:12px;align-items:center;text-align:left;padding:14px 16px;border-radius:12px;border:2px solid var(--line);background:var(--surface);font-size:1.08rem}
+.opt .let{width:30px;height:30px;border-radius:50%;border:2px solid var(--ink-soft);display:grid;place-items:center;font-weight:700;flex:none}
+.opt.sel{border-color:var(--ink);background:var(--tint)}
+.opt.sel .let{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.gapline{font-size:1.2rem;line-height:2.4}
+.inp{border:0;border-bottom:2px solid var(--ink-soft);background:transparent;padding:4px 6px;font-family:var(--f-hand);font-size:1.6rem;color:var(--ink);min-width:0}
+.inp:focus{outline:none;border-bottom-color:var(--c-mathe);background:var(--tint)}
+input.gap{width:9em;max-width:100%}
+input.short{width:100%}
+textarea.free{width:100%;min-height:120px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background-image:linear-gradient(transparent 33px,var(--line) 34px);background-size:100% 34px;line-height:34px;resize:vertical}
+.nav{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* Korrektur */
+.result-top{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.stamp{width:128px;height:128px;border:4px solid var(--red);border-radius:50%;color:var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-9deg);font-family:var(--f-hand);flex:none;animation:stamp .45s cubic-bezier(.3,1.6,.5,1) both}
+.stamp small{font-size:1.2rem;line-height:1}
+.stamp b{font-size:4.2rem;line-height:.9}
+@keyframes stamp{from{transform:scale(1.6) rotate(-20deg);opacity:0}to{transform:rotate(-9deg);opacity:1}}
+.comment{font-family:var(--f-hand);color:var(--red);font-size:1.8rem;line-height:1.1}
+.corr{display:grid;grid-template-columns:44px 1fr;gap:12px;padding:14px 0;border-top:1px dashed var(--line)}
+.corr:first-child{border-top:0}
+.mark{font-size:1.9rem;font-weight:700;line-height:1;text-align:center}
+.mark.ok{color:var(--ok)} .mark.no{color:var(--red)} .mark.half{color:var(--c-englisch)}
+.given{font-family:var(--f-hand);font-size:1.45rem;color:var(--ink);line-height:1.2}
+.fb{font-family:var(--f-hand);font-size:1.35rem;color:var(--red);line-height:1.2}
+.corr .pts{font-family:var(--f-hand);color:var(--red);font-size:1.2rem}
+
+/* Eltern */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tab{white-space:nowrap;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:700;font-size:.95rem}
+.tab.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-weight:700;font-size:.92rem}
+.fin{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);width:100%;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.drop{display:flex;flex-direction:column;align-items:center;gap:6px;border:2px dashed var(--ink-soft);border-radius:var(--r);padding:26px 16px;text-align:center;cursor:pointer;background:var(--tint)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop b{font-family:var(--f-display);font-size:1.1rem}
+.file{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.file img,.file .ph{width:54px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--line);flex:none;background:var(--tint)}
+.file .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.file .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.pg{width:64px;padding:4px 8px}
+.qprev{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.qprev .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ans{color:var(--ok);font-weight:700}
+.pin{font-size:2rem;letter-spacing:.5em;text-align:center;font-family:var(--f-display)}
+.keys{display:grid;grid-template-columns:repeat(3,72px);gap:10px;justify-content:center}
+.keys button{height:60px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:1.4rem;font-weight:700}
+.spin{width:52px;height:52px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--red);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.center{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding-block:28px}
+.shake{animation:sh .35s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:440px){.keys{grid-template-columns:repeat(3,64px)}.result-top{justify-content:center;text-align:center}}
+</style>
+</head>
+<body>
+<style>
+.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:10px}
+.steps li{padding-left:4px}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88rem;background:var(--tint);border:1px solid var(--line);border-radius:8px;padding:8px 10px;overflow-x:auto;white-space:nowrap;display:block}
+.pick{display:flex;gap:12px;align-items:center;border:2px solid var(--line);border-radius:12px;padding:10px;min-width:0;cursor:pointer;background:var(--surface)}
+.pick.on{border-color:var(--ink);background:var(--tint)}
+.pick input{width:22px;height:22px;flex:none;accent-color:var(--ink)}
+.pick img,.pick .ph{width:54px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--line);flex:none;background:var(--tint)}
+.pick .grow{flex:1;min-width:0}
+.pick .name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+a{color:var(--c-mathe)}
+.prep{border-radius:var(--r);background:var(--ink);color:var(--paper);padding:20px;display:flex;flex-direction:column;gap:14px}
+.prep h2{color:var(--paper)}
+.prep .muted{color:var(--paper);opacity:.75}
+.tog{display:flex;flex-wrap:wrap;gap:8px}
+.tog button{border-radius:999px;border:2px solid var(--c);background:transparent;color:inherit;padding:6px 14px;font-weight:700;font-size:.95rem}
+.tog button.on{background:var(--c);color:#fff}
+.tog button:disabled{opacity:.4;cursor:not-allowed}
+.prep .btn{border-color:var(--paper)}
+.prep .btn.primary{background:var(--paper);color:var(--ink)}
+.bar{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:999px;transition:width .3s}
+.merk{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px;font-size:1.12rem}
+.fbok{border-left:4px solid var(--ok);background:var(--tint);padding:12px 14px;border-radius:8px}
+.fbno{border-left:4px solid var(--red);background:var(--tint);padding:12px 14px;border-radius:8px}
+.tt{display:grid;grid-template-columns:110px 1fr;gap:10px 14px;align-items:start}
+.tt b{padding-top:6px}
+@media (max-width:440px){.tt{grid-template-columns:1fr}}
+</style>
+<div class="wrap" id="app"></div>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+"use strict";
+const SCOPES = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
+const GEM = "https://generativelanguage.googleapis.com/v1beta/";
+const TEST_SIZE = 8, MAX_FILES = 10, MAX_BYTES = 15 * 1024 * 1024, MAX_RESULTS = 300;
+const SUBJECTS = [
+  {key:"Mathematik", short:"Mathe", c:"--c-mathe"},
+  {key:"Deutsch", short:"Deutsch", c:"--c-deutsch"},
+  {key:"HSU / Sachunterricht", short:"HSU", c:"--c-hsu"},
+  {key:"Englisch", short:"Englisch", c:"--c-englisch"},
+  {key:"Religion / Ethik", short:"Religion", c:"--c-religion"},
+  {key:"Musik / Kunst", short:"Musik/Kunst", c:"--c-musik"},
+  {key:"Sonstiges", short:"Sonstiges", c:"--c-sonst"}
+];
+const TYPES = {mc:"Ankreuzen", gap:"Lückentext", short:"Kurze Antwort", free:"Freie Antwort"};
+const TYPE_ORDER = ["mc","gap","short","free"];
+const WD = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+const PREP_TOTAL = 12, MAX_PREPS = 200;
+const PROVIDERS = {
+  gemini:{name:"Gemini", long:"Gemini (Google)", keyUrl:"https://aistudio.google.com/apikey", keyHost:"aistudio.google.com/apikey", hint:"AIza…", mime:["image/jpeg","image/png","image/webp","image/heic","image/heif"]},
+  claude:{name:"Claude", long:"Claude (Anthropic)", keyUrl:"https://console.anthropic.com/settings/keys", keyHost:"console.anthropic.com", hint:"sk-ant-…", mime:["image/jpeg","image/png","image/webp","image/gif"]},
+  openai:{name:"ChatGPT", long:"ChatGPT (OpenAI)", keyUrl:"https://platform.openai.com/api-keys", keyHost:"platform.openai.com/api-keys", hint:"sk-…", mime:["image/jpeg","image/png","image/webp","image/gif"]}
+};
+const PKEYS = ["gemini","claude","openai"];
+
+const $app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const subj = k => SUBJECTS.find(s => s.key === k) || SUBJECTS[SUBJECTS.length-1];
+const col = k => `var(${subj(k).c})`;
+const fmtDate = t => new Date(t).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+const fmtP = n => String(n).replace(".",",");
+const rid = () => Math.random().toString(36).slice(2,10);
+const isEmpty = x => x == null || (typeof x === "string" && !x.trim());
+
+/* ---------- lokale Einstellungen (nur Client-ID) ---------- */
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const cfg = lsGet("lernheft.cfg") || {clientId:""};
+
+const EMPTY = () => ({version:1, settings:{}, ai:{}, materials:[], results:[], processed:[], preps:[], imports:[]});
+const S = {
+  view: cfg.clientId ? "signin" : "setup", busyMsg:"", err:"",
+  D: EMPTY(), ids:{}, signedIn:false,
+  subject:null, topic:null, test:null, last:null, gradeErr:"", saveErr:"", pendingResult:null,
+  ptab:"add", pinIn:"", pinBad:false,
+  add:{inbox:null, inboxErr:"", sel:{}, local:[], hint:"", subject:"auto", grade:"", busy:false, err:"", draft:null, showUsed:false},
+  prep:null, prepSel:null, prepFor:"", ttDraft:null, openMat:null, confirmDel:null, openRes:null, setMsg:"", matMsg:"", models:{}, keyErr:"", keyErrP:"", keyBusy:"", aikeyP:"gemini", imp:null, impErr:""
+};
+
+/* ---------- Google-Anmeldung ---------- */
+let tokenClient = null, token = null, tokenExp = 0, tokenWait = null;
+function gisReady(){ return !!(window.google && google.accounts && google.accounts.oauth2); }
+function initGis(){
+  if (tokenClient || !gisReady() || !cfg.clientId) return !!tokenClient;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cfg.clientId, scope: SCOPES,
+    callback: r => { const w = tokenWait; tokenWait = null; if (!w) return;
+      if (r.error){ w.rej({code:"auth", message:r.error_description || r.error}); return; }
+      token = r.access_token; tokenExp = Date.now() + (Number(r.expires_in)||3600)*1000; w.res(token); },
+    error_callback: e => { const w = tokenWait; tokenWait = null; if (w) w.rej({code:"auth", message:(e && e.type) || "popup"}); }
+  });
+  return true;
+}
+/* Muss direkt aus einem Klick heraus aufgerufen werden, sonst blockiert der Browser das Anmeldefenster. */
+function requestToken(){
+  return new Promise((res, rej) => {
+    if (!initGis()) return rej({code:"gis"});
+    tokenWait = {res, rej};
+    tokenClient.requestAccessToken({prompt: ""});
+  });
+}
+const tokenFresh = (ms = 5*60*1000) => token && Date.now() < tokenExp - ms;
+function refreshIfNeeded(){ if (S.signedIn && !tokenFresh(10*60*1000)) return requestToken().catch(() => null); return Promise.resolve(token); }
+
+/* ---------- Google Drive ---------- */
+async function gapi(path, opts = {}){
+  if (!tokenFresh(30*1000)) throw {code:"auth"};
+  const r = await fetch("https://www.googleapis.com/" + path, {...opts, headers:{Authorization:"Bearer " + token, ...(opts.headers||{})}});
+  if (r.status === 401){ token = null; throw {code:"auth"}; }
+  if (!r.ok){ let m = ""; try{ m = (await r.json()).error.message; }catch(e){} throw {code:"drive", status:r.status, message:m}; }
+  return r;
+}
+async function findByRole(role){
+  const q = `appProperties has { key='lernheft' and value='${role}' } and trashed=false`;
+  const r = await gapi("drive/v3/files?spaces=drive&fields=files(id,name)&q=" + encodeURIComponent(q));
+  return (await r.json()).files[0] || null;
+}
+async function createFolder(name, parent, role){
+  const r = await gapi("drive/v3/files?fields=id", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({name, mimeType:"application/vnd.google-apps.folder", parents: parent ? [parent] : undefined, appProperties:{lernheft:role}})});
+  return (await r.json()).id;
+}
+async function ensureStructure(){
+  const root = await findByRole("root");
+  S.ids.root = root ? root.id : await createFolder("Lernheft", null, "root");
+  const inbox = await findByRole("inbox");
+  S.ids.inbox = inbox ? inbox.id : await createFolder("Neue Blätter", S.ids.root, "inbox");
+  const data = await findByRole("data");
+  if (data) S.ids.data = data.id;
+  else {
+    const b = "lernheft" + rid();
+    const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+      JSON.stringify({name:"lernheft-daten.json", mimeType:"application/json", parents:[S.ids.root], appProperties:{lernheft:"data"}}) +
+      `\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(EMPTY())}\r\n--${b}--`;
+    const r = await gapi("upload/drive/v3/files?uploadType=multipart&fields=id", {method:"POST", headers:{"Content-Type":"multipart/related; boundary=" + b}, body});
+    S.ids.data = (await r.json()).id;
+  }
+}
+async function readData(){
+  const r = await gapi(`drive/v3/files/${S.ids.data}?alt=media`);
+  let d; try{ d = JSON.parse(await r.text()); }catch(e){ d = null; }
+  return Object.assign(EMPTY(), d && typeof d === "object" ? d : {});
+}
+async function writeData(d){
+  await gapi(`upload/drive/v3/files/${S.ids.data}?uploadType=media`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify(d)});
+}
+/* Jede Änderung: neuesten Stand aus Drive holen, Änderung anwenden, zurückschreiben. So überschreiben sich Tablet und andere Geräte nicht gegenseitig. */
+let chain = Promise.resolve();
+function mutate(fn){
+  const p = chain.then(async () => { const d = await readData(); fn(d); if (d.results.length > MAX_RESULTS) d.results = d.results.slice(0, MAX_RESULTS); if ((d.preps||[]).length > MAX_PREPS) d.preps = d.preps.slice(0, MAX_PREPS); await writeData(d); S.D = d; });
+  chain = p.catch(() => {});
+  return p;
+}
+async function reloadData(){ S.D = await readData(); }
+async function listInbox(){
+  const q = `'${S.ids.inbox}' in parents and trashed=false and (mimeType contains 'image/' or mimeType = 'application/pdf' or name contains 'lernheft-import')`;
+  const r = await gapi("drive/v3/files?spaces=drive&orderBy=createdTime%20desc&pageSize=100&fields=files(id,name,mimeType,size,createdTime,thumbnailLink)&q=" + encodeURIComponent(q));
+  return (await r.json()).files || [];
+}
+const isImport = f => /lernheft-import/i.test(f.name) && !/^image\//.test(f.mimeType) && f.mimeType !== "application/pdf";
+async function downloadFile(id){ return (await gapi(`drive/v3/files/${id}?alt=media`)).blob(); }
+const driveErr = e => e && e.code === "auth" ? "Die Anmeldung bei Google ist abgelaufen. Tippe den Knopf einfach nochmal an, dann meldet sich das Lernheft neu an." : "Google Drive hat nicht geantwortet" + (e && e.message ? ` (${e.message})` : "") + ". Bitte nochmal versuchen.";
+
+/* ---------- KI-Anbieter ---------- */
+function parseJson(t){
+  try{ return JSON.parse(t); }catch(e){}
+  const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f){ try{ return JSON.parse(f[1]); }catch(e){} }
+  const idx = ["{","["].map(c => t.indexOf(c)).filter(i => i >= 0);
+  const a = idx.length ? Math.min(...idx) : -1, b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (a >= 0 && b > a){ try{ return JSON.parse(t.slice(a, b+1)); }catch(e){} }
+  throw {code:"json"};
+}
+function aiCfg(d = S.D){
+  const a = (d && d.ai) || {};
+  if (a.key && !a.keys) return {provider:"gemini", keys:{gemini:a.key}, models:{gemini:a.model}};
+  return {provider: a.provider || "gemini", keys: {...(a.keys || {})}, models: {...(a.models || {})}};
+}
+function aiReady(){ const a = aiCfg(); return !!(a.keys[a.provider] && a.models[a.provider]); }
+const provName = () => PROVIDERS[aiCfg().provider].name;
+function httpErr(status, m){
+  if (status === 429 || /quota|credit balance|billing|insufficient/i.test(m)) return {code:"quota", message:m};
+  if (status === 404 || /model.*(not found|does not exist)|not_found/i.test(m)) return {code:"model", message:m};
+  if (status === 401 || status === 403 || /api key|x-api-key|authentication|permission/i.test(m)) return {code:"key", message:m};
+  if (status === 413 || /too large|too long|exceed|size/i.test(m)) return {code:"big", message:m};
+  return {code:"ai", message:m};
+}
+async function post(url, headers, body){
+  let r;
+  try{ r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json", ...headers}, body: JSON.stringify(body)}); }
+  catch(e){ throw {code:"net"}; }
+  if (!r.ok){ let m = ""; try{ const j = await r.json(); m = (j.error && (j.error.message || j.error.type)) || ""; }catch(e){} throw httpErr(r.status, m); }
+  return r.json();
+}
+const isFile = p => p.text == null;
+async function callGemini(parts, key, model, temperature){
+  const j = await post(`${GEM}models/${encodeURIComponent(model)}:generateContent`, {"x-goog-api-key":key},
+    {contents:[{role:"user", parts}], generationConfig:{temperature, responseMimeType:"application/json"}});
+  const c = j.candidates && j.candidates[0];
+  return c && c.content ? (c.content.parts||[]).filter(p => !p.thought).map(p => p.text || "").join("") : "";
+}
+async function callClaude(parts, key, model){
+  const content = [...parts.filter(isFile), ...parts.filter(p => !isFile(p))].map(p => {
+    if (!isFile(p)) return {type:"text", text:p.text};
+    const {mime_type, data} = p.inline_data;
+    return mime_type === "application/pdf" ? {type:"document", source:{type:"base64", media_type:mime_type, data}} : {type:"image", source:{type:"base64", media_type:mime_type, data}};
+  });
+  const j = await post("https://api.anthropic.com/v1/messages", {"x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true"},
+    {model, max_tokens:8000, messages:[{role:"user", content}]});
+  return (j.content || []).filter(c => c.type === "text").map(c => c.text).join("");
+}
+async function callOpenAI(parts, key, model){
+  const content = parts.map(p => {
+    if (!isFile(p)) return {type:"text", text:p.text};
+    const {mime_type, data} = p.inline_data;
+    return mime_type === "application/pdf" ? {type:"file", file:{filename:"material.pdf", file_data:`data:application/pdf;base64,${data}`}} : {type:"image_url", image_url:{url:`data:${mime_type};base64,${data}`}};
+  });
+  const j = await post("https://api.openai.com/v1/chat/completions", {Authorization:"Bearer " + key},
+    {model, messages:[{role:"user", content}], response_format:{type:"json_object"}});
+  return (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+}
+async function askAI(parts, temperature = 0.6){
+  const a = aiCfg(), p = a.provider, key = a.keys[p], model = a.models[p];
+  if (!key || !model) throw {code:"key"};
+  const text = await ({gemini:callGemini, claude:callClaude, openai:callOpenAI}[p])(parts, key, model, temperature);
+  if (!text) throw {code:"blocked"};
+  return parseJson(text);
+}
+function aiErr(e){
+  const c = e && e.code, n = provName(), free = aiCfg().provider === "gemini";
+  if (c === "quota") return free ? "Das kostenlose Gemini-Kontingent ist gerade aufgebraucht. Warte ein paar Minuten (oder bis morgen) und versuche es dann nochmal." : `Bei ${n} ist das Guthaben oder Limit erreicht. Prüfe dein Konto beim Anbieter oder stelle im Elternbereich auf einen anderen Anbieter um.`;
+  if (c === "key") return `Der ${n}-Schlüssel fehlt oder wird nicht akzeptiert. Prüfe ihn im Elternbereich unter Einstellungen.`;
+  if (c === "model") return `Das eingestellte ${n}-Modell ist nicht verfügbar. Wähle unter Einstellungen ein anderes Modell.`;
+  if (c === "big") return "Das ist zu viel Material auf einmal. Bitte weniger oder kleinere Dateien auswählen.";
+  if (c === "json") return `Die Antwort von ${n} war unvollständig. Bitte nochmal versuchen, eventuell mit weniger Seiten.`;
+  if (c === "blocked") return `${n} hat keine Antwort geliefert. Bitte prüfe, ob das Material Schulstoff ist, und versuche es nochmal.`;
+  if (c === "material") return e.message;
+  if (c === "auth" || c === "drive") return driveErr(e);
+  return `Keine Verbindung zu ${n}. Bitte prüfe das Internet und versuche es nochmal.`;
+}
+async function getJson(url, headers){
+  let r; try{ r = await fetch(url, {headers}); }catch(e){ throw {code:"net"}; }
+  if (!r.ok){ let m = ""; try{ const j = await r.json(); m = (j.error && (j.error.message || j.error.type)) || ""; }catch(e){} throw httpErr(r.status, m); }
+  return r.json();
+}
+const ver = (n, re) => { const m = n.match(re); return m ? parseFloat(m[1]) : 0; };
+async function listModels(p, key){
+  if (p === "gemini"){
+    const ms = ((await getJson(`${GEM}models?pageSize=200`, {"x-goog-api-key":key})).models || []).filter(m => (m.supportedGenerationMethods||[]).includes("generateContent")).map(m => m.name.replace(/^models\//,""));
+    const bad = /(live|tts|image|audio|transcribe|embed|robotics|computer|native|lite|preview|exp|-\d{3}$)/i, re = /^gemini-(\d+(?:\.\d+)?)/;
+    const flash = ms.filter(n => /^gemini-[\d.]+-flash$/.test(n)).sort((a,b) => ver(b,re) - ver(a,re));
+    const other = ms.filter(n => /^gemini-/.test(n) && !bad.test(n)).sort((a,b) => ver(b,re) - ver(a,re));
+    return {best: flash[0] || other[0] || ms[0] || "", all: [...new Set([...flash, ...other, ...ms.filter(n => /^gemini-/.test(n))])]};
+  }
+  if (p === "claude"){
+    const data = ((await getJson("https://api.anthropic.com/v1/models?limit=100", {"x-api-key":key, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true"})).data || [])
+      .sort((a,b) => String(b.created_at||"").localeCompare(String(a.created_at||""))).map(m => m.id);
+    return {best: data.find(id => /sonnet/i.test(id)) || data[0] || "", all: data};
+  }
+  const ids = ((await getJson("https://api.openai.com/v1/models", {Authorization:"Bearer " + key})).data || []).map(m => m.id);
+  const bad = /(audio|realtime|tts|transcribe|image|search|instruct|embedding|codex|moderation|dall|whisper|preview|nano|\d{4}-\d{2}-\d{2})/i, re = /^gpt-(\d+(?:\.\d+)?)/;
+  const gpt = ids.filter(id => /^gpt-[\d.]+/.test(id) && !bad.test(id)).sort((a,b) => ver(b,re) - ver(a,re));
+  return {best: gpt.find(id => /^gpt-[\d.]+-mini$/.test(id)) || gpt.find(id => /^gpt-[\d.]+$/.test(id)) || gpt[0] || ids[0] || "", all: gpt.length ? gpt : ids};
+}
+
+/* ---------- Daten-Helfer ---------- */
+const D = () => S.D;
+function catalog(){
+  const map = new Map();
+  for (const m of D().materials){
+    const n = (m.questions||[]).length; if (!n) continue;
+    if (!map.has(m.subject)) map.set(m.subject, new Map());
+    const t = map.get(m.subject); t.set(m.topic, (t.get(m.topic)||0) + n);
+  }
+  return SUBJECTS.filter(s => map.has(s.key)).map(s => ({key:s.key, topics:[...map.get(s.key)].map(([topic,n]) => ({topic,n})).sort((a,b)=>a.topic.localeCompare(b.topic,"de"))}));
+}
+const lastFor = (subject, topic) => D().results.find(r => r.subject === subject && (topic == null || r.topic === topic));
+const gradeOf = p => p>=92?1:p>=81?2:p>=67?3:p>=50?4:p>=30?5:6;
+const COMMENTS = {1:"Super gemacht!",2:"Sehr gut geübt!",3:"Gut! Ein paar Sachen üben wir noch.",4:"Weiter üben, du schaffst das!",5:"Nicht aufgeben, wir üben das nochmal.",6:"Nicht aufgeben, wir üben das nochmal."};
+function pickWeighted(arr){ const tot = arr.reduce((s,x)=>s+x.w,0); let r = Math.random()*tot; for (let i=0;i<arr.length;i++){ r -= arr[i].w; if (r<=0) return i; } return arr.length-1; }
+function buildTest(subject, topic){
+  const pool = [];
+  for (const m of D().materials){
+    if (m.subject !== subject || (topic && m.topic !== topic)) continue;
+    for (const q of (m.questions||[])) pool.push({...q, key:m.id+":"+q.id});
+  }
+  const last = {};
+  const hist = [...D().results, ...(D().preps||[])].sort((a,b) => b.createdAt - a.createdAt);
+  for (const r of hist) for (const it of (r.items||[])) if (it.key && !(it.key in last) && it.points != null) last[it.key] = it.max ? it.points/it.max : 0;
+  for (const q of pool){ const l = last[q.key]; q.w = l == null ? 2 : l < .5 ? 4 : l < 1 ? 2.5 : .7; }
+  const chosen = [];
+  for (const t of TYPE_ORDER){ const c = pool.filter(q => q.type === t); if (c.length && chosen.length < TEST_SIZE){ const q = c[pickWeighted(c)]; chosen.push(q); pool.splice(pool.indexOf(q),1); } }
+  while (chosen.length < TEST_SIZE && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); }
+  chosen.sort((a,b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+  return chosen.map(q => ({...q, points: q.type === "free" ? 2 : 1}));
+}
+function norm(s, strict){
+  s = String(s ?? "").trim().replace(/\s+/g," ");
+  if (strict) return s.replace(/[.!?]+$/,"");
+  return s.toLowerCase().replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss").replace(/[.!?;:"'„“”‚‘’()]/g,"").trim();
+}
+function asNum(s){ const t = String(s).trim().replace(/\s/g,"").replace(",","."); return /^-?\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null; }
+function matches(given, accepted, strict){
+  const gn = asNum(given);
+  return (accepted||[]).some(a => { const an = asNum(a); if (gn != null && an != null) return Math.abs(gn-an) < 1e-9; return norm(given, strict) === norm(a, strict); });
+}
+const qPrompt = q => q.type === "gap" ? q.text.replace("___","_____") : q.prompt;
+const qAnswer = q => q.type === "mc" ? q.options[q.correct] : q.type === "free" ? q.modelAnswer : q.accepted.join(" / ");
+
+/* ---------- Tagesvorbereitung ---------- */
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const fromIso = s => { const [y,m,d] = String(s).split("-").map(Number); return new Date(y, m-1, d); };
+function nextSchoolDay(){ const d = new Date(); d.setHours(12,0,0,0); do d.setDate(d.getDate()+1); while (d.getDay() === 0 || d.getDay() === 6); return d; }
+const lessonDay = m => m.lessonDate || isoDay(new Date(m.createdAt));
+function subjectsWithMaterial(){ return new Set(D().materials.filter(m => (m.questions||[]).some(q => q.type !== "free")).map(m => m.subject)); }
+function timetableFor(day){ const tt = (D().settings.timetable || {})[day.getDay()]; return Array.isArray(tt) ? tt : []; }
+function latestLesson(subject){
+  const ms = D().materials.filter(m => m.subject === subject && (m.questions||[]).some(q => q.type !== "free")).sort((a,b) => lessonDay(b).localeCompare(lessonDay(a)) || b.createdAt - a.createdAt);
+  if (!ms.length) return null;
+  const day = lessonDay(ms[0]);
+  return {day, latest: ms.filter(m => lessonDay(m) === day), older: ms.filter(m => lessonDay(m) !== day)};
+}
+function doneDays(){ return new Set((D().preps||[]).map(p => p.doneOn)); }
+function streak(){
+  const done = doneDays(); const d = new Date(); d.setHours(12,0,0,0);
+  if (!done.has(isoDay(d))) d.setDate(d.getDate()-1);
+  let n = 0;
+  for (let i = 0; i < 400; i++){
+    const k = isoDay(d), we = d.getDay() === 0 || d.getDay() === 6;
+    if (done.has(k)) n++; else if (!we) break;
+    d.setDate(d.getDate()-1);
+  }
+  return n;
+}
+function buildPrep(subjects, target){
+  const per = Math.max(3, Math.min(6, Math.round(PREP_TOTAL / subjects.length)));
+  const hist = [...D().results, ...(D().preps||[])].sort((a,b) => b.createdAt - a.createdAt), last = {};
+  for (const r of hist) for (const it of (r.items||[])) if (it.key && !(it.key in last) && it.points != null) last[it.key] = it.max ? it.points/it.max : 0;
+  const steps = [];
+  for (const sj of subjects){
+    const L = latestLesson(sj); if (!L) continue;
+    const pts = []; for (const m of L.latest){ for (const p of (m.keyPoints && m.keyPoints.length ? m.keyPoints : [m.summary])) if (p && !pts.includes(p)) pts.push(p); }
+    steps.push({kind:"recap", subject:sj, day:L.day, topics:[...new Set(L.latest.map(m => m.topic))], points: pts.slice(0,5)});
+    const mk = ms => ms.flatMap(m => (m.questions||[]).filter(q => q.type !== "free").map(q => ({...q, key:m.id+":"+q.id, w: last[m.id+":"+q.id] == null ? 2 : last[m.id+":"+q.id] < 1 ? 3 : .8})));
+    let pool = mk(L.latest); const chosen = [];
+    while (chosen.length < per && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); }
+    if (chosen.length < per){ pool = mk(L.older); while (chosen.length < per && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); } }
+    chosen.sort((a,b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+    for (const q of chosen) steps.push({kind:"q", subject:sj, q});
+  }
+  return {target: isoDay(target), dayName: WD[target.getDay()], subjects, steps, idx:0, answers:{}, checked:{}, start: Date.now(), saved:false};
+}
+
+/* ---------- Ansichten ---------- */
+function header(){
+  const parent = S.view === "parent" || S.view === "gate";
+  const kidNav = ["home","topics","intro","result","gradeErr"].includes(S.view);
+  return `<header class="top">
+    <button type="button" class="brand" data-act="home"><span class="brand-mark" aria-hidden="true"></span>Mein Lernheft</button>
+    ${parent ? `<button type="button" class="btn sm" data-act="home">Zum Kinderbereich</button>` : kidNav ? `<button type="button" class="btn sm" data-act="parent">Eltern</button>` : ""}
+  </header>`;
+}
+function render(){
+  const v = {setup, signin, loading, aikey, home, topics, intro, quiz, prep:prepView, grading, gradeErr:gradeErrView, result, gate, parent}[S.view] || home;
+  $app.innerHTML = header() + v();
+  if (S.view === "quiz" || S.view === "prep"){ const a = document.getElementById("ans"); if (a && a.tagName === "INPUT" && !a.disabled) a.focus({preventScroll:true}); }
+}
+function go(view){ S.view = view; render(); window.scrollTo(0,0); }
+
+function setup(){
+  const origin = location.origin;
+  return `<section class="card"><h1>Einrichtung</h1>
+    <p>Damit das Lernheft deinen Google-Drive-Ordner nutzen darf, brauchst du einmalig eine eigene Anmelde-ID von Google. Das ist kostenlos und dauert etwa 15 Minuten.</p>
+    ${origin === "null" || location.protocol === "file:" ? `<p class="err small">Diese Seite wurde als Datei geöffnet. Die Google-Anmeldung funktioniert nur, wenn das Lernheft im Internet liegt (z. B. auf GitHub Pages).</p>` : ""}
+    <ol class="steps">
+      <li>Öffne <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> mit deinem Google-Konto und lege oben über die Projektauswahl ein <b>neues Projekt</b> an, z. B. „Lernheft“.</li>
+      <li>Suche oben nach <b>Google Drive API</b> und tippe auf <b>Aktivieren</b>.</li>
+      <li>Öffne <b>Google Auth Platform</b> (früher „OAuth-Zustimmungsbildschirm“) und tippe auf <b>Jetzt starten</b>: App-Name „Lernheft“, deine E-Mail-Adresse, Zielgruppe <b>Extern</b>.</li>
+      <li>Unter <b>Zielgruppe → Testnutzer</b> deine Google-Adresse hinzufügen. Der Status bleibt „Testen“, das reicht.</li>
+      <li>Unter <b>Datenzugriff → Bereiche hinzufügen</b> diese zwei auswählen: <span class="code">…/auth/drive.readonly</span><span class="code">…/auth/drive.file</span></li>
+      <li>Unter <b>Clients → Client erstellen</b>: Typ <b>Webanwendung</b>. Bei <b>Autorisierte JavaScript-Quellen</b> genau diese Adresse eintragen:<span class="code" id="origin">${esc(origin)}</span><button type="button" class="btn sm" data-act="copy-origin">Adresse kopieren</button></li>
+      <li>Erstellen, die <b>Client-ID</b> kopieren (endet auf <i>.apps.googleusercontent.com</i>) und hier einfügen:</li>
+    </ol>
+    <div class="field"><label for="clientId">Client-ID</label><input id="clientId" class="fin" autocomplete="off" spellcheck="false" value="${esc(cfg.clientId)}" placeholder="1234567890-abc….apps.googleusercontent.com"></div>
+    ${S.err ? `<p class="err">${esc(S.err)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="save-client">Speichern und weiter</button></div>
+    <p class="muted small">Beim ersten Anmelden zeigt Google „Google hat diese App nicht überprüft“. Das ist normal, weil es deine eigene App ist: <b>Weiter</b> tippen und den Zugriff auf Drive erlauben.</p>
+  </section>`;
+}
+function signin(){
+  return `<section class="card center"><h1>Hallo!</h1><p>Tippe auf den Knopf, um dein Lernheft zu öffnen.</p>
+    <button type="button" class="btn primary" data-act="signin">Lernheft öffnen</button>
+    ${S.err ? `<p class="err small">${esc(S.err)}</p>` : `<p class="muted small">Die Anmeldung läuft über Google.</p>`}
+    <button type="button" class="btn ghost sm" data-act="edit-client">Einrichtung ändern</button></section>`;
+}
+function loading(){ return `<section class="card center"><div class="spin"></div><p class="muted">${esc(S.busyMsg || "Lernheft wird geöffnet …")}</p></section>`; }
+function keyForm(p){
+  const P = PROVIDERS[p];
+  return `<div class="field"><label for="key_${p}">${esc(P.name)}-API-Schlüssel</label><input id="key_${p}" class="fin" autocomplete="off" spellcheck="false" placeholder="${esc(P.hint)}"></div>
+    ${S.keyErr && S.keyErrP === p ? `<p class="err small">${esc(S.keyErr)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary sm" data-act="save-key" data-p="${p}" ${S.keyBusy ? "disabled" : ""}>${S.keyBusy === p ? "Wird geprüft …" : "Schlüssel prüfen und speichern"}</button></div>`;
+}
+function provSteps(p){
+  const P = PROVIDERS[p];
+  if (p === "gemini") return `<ol class="steps"><li>Öffne <a href="${P.keyUrl}" target="_blank" rel="noopener">${P.keyHost}</a> mit deinem Google-Konto.</li><li>Tippe auf <b>API-Schlüssel erstellen</b> und kopiere ihn.</li><li>Füge ihn hier ein.</li></ol><p class="muted small">Kostenlos. In der kostenlosen Stufe darf Google die Eingaben zur Verbesserung seiner Dienste verwenden.</p>`;
+  return `<ol class="steps"><li>Öffne <a href="${P.keyUrl}" target="_blank" rel="noopener">${P.keyHost}</a> und melde dich an.</li><li>Lade unter „Billing“ ein kleines Guthaben auf, z. B. 5 €. ${p === "claude" ? "Ein Claude-Pro-Abo" : "Ein ChatGPT-Plus-Abo"} reicht dafür nicht, die API wird getrennt abgerechnet.</li><li>Erstelle einen API-Schlüssel, kopiere ihn und füge ihn hier ein.</li></ol>`;
+}
+function aikey(){
+  const p = S.aikeyP;
+  return `<section class="card"><h1>Fast geschafft</h1>
+    <p>Jetzt fehlt nur noch der Schlüssel für eine KI, damit aus den Arbeitsblättern Fragen werden. Empfohlen ist Gemini, weil es kostenlos ist. Du kannst später jederzeit umstellen.</p>
+    <div class="tabs">${PKEYS.map(k => `<button type="button" class="tab ${k===p?"on":""}" data-act="aikey-p" data-p="${k}">${esc(PROVIDERS[k].long)}</button>`).join("")}</div>
+    ${provSteps(p)}${keyForm(p)}
+    <p class="muted small">Der Schlüssel wird in deiner Datei im Drive-Ordner „Lernheft“ gespeichert, damit er auf allen deinen Geräten funktioniert.</p></section>`;
+}
+function home(){
+  const name = D().settings.childName, cat = catalog();
+  let h = `<section class="card"><h1>Hallo${name ? " " + esc(name) : ""}!</h1><p class="muted">Welches Fach möchtest du heute üben?</p></section>`;
+  if (cat.length) h += prepCard();
+  if (!cat.length) return h + `<section class="card"><h2>Dein Lernheft ist noch leer</h2><p>Sobald deine Eltern Arbeitsblätter oder Buchseiten hochladen, erscheinen hier deine Fächer.</p><div class="row"><button type="button" class="btn primary" data-act="parent">Zum Elternbereich</button></div></section>`;
+  h += `<section class="hefte">` + cat.map(s => `<button type="button" class="heft" style="--c:${col(s.key)}" data-act="subject" data-s="${esc(s.key)}"><span class="heft-label"><small>Fach</small><b>${esc(subj(s.key).short)}</b><span>${s.topics.length} ${s.topics.length === 1 ? "Thema" : "Themen"}</span></span></button>`).join("") + `</section>`;
+  const recent = D().results.slice(0,4);
+  if (recent.length) h += `<section class="card"><h2>Deine letzten Schulaufgaben</h2><div class="list">` + recent.map(r => `<div class="item"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten</div></div><span class="mini-stamp">${r.grade}</span></div>`).join("") + `</div></section>`;
+  return h;
+}
+function prepCard(){
+  const target = nextSchoolDay(), key = isoDay(target), avail = subjectsWithMaterial(), tt = timetableFor(target);
+  if (S.prepFor !== key || !S.prepSel){ S.prepFor = key; S.prepSel = tt.filter(s => avail.has(s)); }
+  const today = isoDay(new Date()), doneToday = doneDays().has(today), st = streak();
+  const shown = [...new Set([...tt, ...SUBJECTS.map(s => s.key).filter(k => avail.has(k))])];
+  const dayLabel = target.getDay() === (new Date().getDay() + 1) % 7 ? `morgen (${WD[target.getDay()]})` : `${WD[target.getDay()]}`;
+  return `<section class="prep"><h2>${doneToday ? "Für " + esc(dayLabel) + " bist du vorbereitet!" : "Vorbereitung für " + esc(dayLabel)}</h2>
+    <p class="muted">${doneToday ? "Super! Du kannst trotzdem nochmal üben." : tt.length ? "Laut Stundenplan hast du diese Fächer. Du kannst Fächer an- und abwählen." : "Welche Fächer hast du? Tippe sie an."} Etwa 15 Minuten.</p>
+    <div class="tog">${shown.map(k => `<button type="button" style="--c:${col(k)}" class="${S.prepSel.includes(k) ? "on" : ""}" data-act="prep-tog" data-s="${esc(k)}" ${avail.has(k) ? "" : "disabled title=\"Noch kein Material\""}>${esc(subj(k).short)}</button>`).join("")}</div>
+    <div class="row"><button type="button" class="btn primary" data-act="prep-start" ${S.prepSel.length ? "" : "disabled"}>${doneToday ? "Nochmal wiederholen" : "Vorbereitung starten"}</button>${st ? `<span class="small">${st} ${st === 1 ? "Schultag" : "Schultage"} in Folge vorbereitet</span>` : ""}</div>
+  </section>`;
+}
+function prepView(){
+  const P = S.prep, n = P.steps.length, min = Math.floor((Date.now() - P.start) / 60000);
+  const head = `<section class="card"><div class="row" style="justify-content:space-between"><b>Vorbereitung für ${esc(P.dayName)}</b><span class="muted small" id="prepClock">${min} von ca. 15 Min.</span></div><div class="bar"><i style="width:${Math.round((P.idx / n) * 100)}%"></i></div></section>`;
+  if (P.idx >= n){
+    const qs = P.steps.filter(s => s.kind === "q"), ok = qs.filter((s,i) => P.checked[P.steps.indexOf(s)] === true).length;
+    const per = P.subjects.map(sj => { const st = P.steps.map((s,i) => [s,i]).filter(([s]) => s.kind === "q" && s.subject === sj); return `<div class="item"><span class="chip" style="--c:${col(sj)}">${esc(subj(sj).short)}</span><span class="grow"></span><b>${st.filter(([,i]) => P.checked[i] === true).length} von ${st.length} richtig</b></div>`; }).join("");
+    return head + `<section class="card center"><p class="comment">Fertig für ${esc(P.dayName)}!</p><h2>${ok} von ${qs.length} richtig</h2>
+      <p class="muted">${streak() > 1 ? `Schon ${streak()} Schultage in Folge vorbereitet. Weiter so!` : "Morgen bist du gut vorbereitet."}</p></section>
+      <section class="card"><div class="list">${per}</div>${S.saveErr ? `<p class="err small">${esc(S.saveErr)}</p><div class="row"><button type="button" class="btn sm" data-act="prep-save">Nochmal speichern</button></div>` : ""}
+      <div class="row"><button type="button" class="btn primary" data-act="home">Zur Startseite</button></div></section>`;
+  }
+  const s = P.steps[P.idx];
+  if (s.kind === "recap"){
+    return head + `<section class="subjhead" style="--c:${col(s.subject)}"><p class="small">Das hattest du zuletzt am ${esc(WD[fromIso(s.day).getDay()])}, ${fmtDate(fromIso(s.day))}</p><h1>${esc(subj(s.subject).key)}</h1></section>
+      <section class="card"><h2>${s.topics.map(esc).join(" · ")}</h2><p class="muted small">Lies dir die Merksätze in Ruhe durch.</p>
+      <ol class="merk">${s.points.map(p => `<li>${esc(p)}</li>`).join("")}</ol>
+      <div class="row"><button type="button" class="btn primary" data-act="prep-next">Verstanden, weiter</button></div></section>`;
+  }
+  const q = s.q, a = P.answers[P.idx], ch = P.checked[P.idx];
+  const fb = ch == null ? "" : ch ? `<div class="fbok"><p><b>Richtig!</b> ${esc(q.explanation || "")}</p></div>` : `<div class="fbno"><p><b>Fast!</b> Richtig ist: <b>${esc(qAnswer(q))}</b></p>${q.explanation ? `<p class="small" style="margin-top:6px">${esc(q.explanation)}</p>` : ""}</div>`;
+  return head + `<section class="card"><div class="row muted small"><span class="chip" style="--c:${col(s.subject)}">${esc(subj(s.subject).short)}</span>${esc(TYPES[q.type])}</div>
+    ${q.type === "gap" ? `<p class="muted">${esc(q.prompt || "Setze das fehlende Wort ein.")}</p>` : `<p class="qtext">${esc(q.prompt)}</p>`}
+    ${inputFor(q, a, "pmc", ch != null)}
+    ${fb}
+    <div class="row">${ch == null ? `<button type="button" class="btn primary" data-act="prep-check" ${isEmpty(a) ? "disabled" : ""}>Prüfen</button><button type="button" class="btn ghost sm" data-act="prep-skip">Weiß ich nicht</button>` : `<button type="button" class="btn primary" data-act="prep-next">Weiter ›</button>`}</div></section>
+  <div class="row" style="justify-content:center"><button type="button" class="btn ghost sm" data-act="prep-quit">Vorbereitung beenden</button></div>`;
+}
+let prepTimer = null;
+function prepTick(){ clearInterval(prepTimer); prepTimer = setInterval(() => { if (S.view !== "prep") return clearInterval(prepTimer); const el = document.getElementById("prepClock"); if (el && S.prep) el.textContent = `${Math.floor((Date.now() - S.prep.start)/60000)} von ca. 15 Min.`; }, 20000); }
+function prepCheck(skip){
+  const P = S.prep, s = P.steps[P.idx], q = s.q, a = P.answers[P.idx];
+  let ok = false;
+  if (!skip){ if (q.type === "mc") ok = a === q.correct; else ok = matches(a, q.accepted, s.subject === "Deutsch"); }
+  P.checked[P.idx] = ok; render();
+}
+async function prepSave(){
+  const P = S.prep; if (!P || P.saved) return;
+  const items = P.steps.map((s,i) => [s,i]).filter(([s]) => s.kind === "q" && P.checked[i] != null).map(([s,i]) => ({key:s.q.key, points: P.checked[i] ? 1 : 0, max:1}));
+  const rec = {id: rid()+rid(), createdAt: Date.now(), doneOn: isoDay(new Date()), target: P.target, subjects: P.subjects, correct: items.filter(x => x.points).length, total: items.length, minutes: Math.round((Date.now()-P.start)/60000), items};
+  try{ await mutate(d => { d.preps = d.preps || []; if (!d.preps.some(x => x.id === rec.id)) d.preps.unshift(rec); }); P.saved = true; S.saveErr = ""; }
+  catch(e){ S.saveErr = e && e.code === "auth" ? "Noch nicht gespeichert, weil die Anmeldung abgelaufen ist." : "Konnte nicht gespeichert werden."; }
+  if (S.view === "prep") render();
+}
+function topics(){
+  const s = catalog().find(x => x.key === S.subject);
+  if (!s){ S.view = "home"; return home(); }
+  let h = `<section class="subjhead" style="--c:${col(s.key)}"><p class="small">Fach</p><h1>${esc(s.key)}</h1></section><section class="card"><h2>Welches Thema?</h2><div class="list">`;
+  if (s.topics.length > 1) h += `<button type="button" class="item" data-act="topic" data-t=""><div class="grow"><b>Alles gemischt</b><div class="muted small">Fragen aus allen Themen</div></div><span aria-hidden="true">›</span></button>`;
+  for (const t of s.topics){ const l = lastFor(s.key, t.topic);
+    h += `<button type="button" class="item" data-act="topic" data-t="${esc(t.topic)}"><div class="grow"><b>${esc(t.topic)}</b><div class="muted small">${t.n} Fragen${l ? " · zuletzt am " + fmtDate(l.createdAt) : " · noch nicht geübt"}</div></div>${l ? `<span class="mini-stamp">${l.grade}</span>` : `<span aria-hidden="true">›</span>`}</button>`; }
+  return h + `</div><div class="row"><button type="button" class="btn ghost" data-act="home">‹ Andere Fächer</button></div></section>`;
+}
+function intro(){
+  const qs = buildTest(S.subject, S.topic), pts = qs.reduce((a,q)=>a+q.points,0);
+  return `<section class="card"><h1>Schulaufgabe</h1>
+    <div class="probe-head"><div><small>Name</small><b>${esc(D().settings.childName || "") || "&nbsp;"}</b></div><div><small>Datum</small><b>${fmtDate(Date.now())}</b></div><div><small>Fach</small><b>${esc(subj(S.subject).short)}</b></div><div><small>Thema</small><b>${esc(S.topic || "Alles gemischt")}</b></div></div>
+    <p>${qs.length} Aufgaben · ${pts} Punkte. Lies jede Aufgabe genau. Mit den Kreisen oben kannst du zwischen den Aufgaben springen.</p>
+    ${qs.length < TEST_SIZE ? `<p class="notice small">Zu diesem Thema gibt es erst ${qs.length} Fragen. Mit mehr Material werden die Schulaufgaben länger.</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="start">Los geht's</button><button type="button" class="btn ghost" data-act="back-topics">Anderes Thema</button></div></section>`;
+}
+function inputFor(q, a, mcAct, locked){
+  const dis = locked ? "disabled" : "";
+  if (q.type === "mc") return `<div class="opts" role="radiogroup">` + q.options.map((o,i) => `<button type="button" role="radio" aria-checked="${a===i}" class="opt ${a===i?"sel":""}" data-act="${mcAct}" data-i="${i}" ${dis}><span class="let">${"abcde"[i]}</span><span>${esc(o)}</span></button>`).join("") + `</div>`;
+  if (q.type === "gap"){ const p = q.text.split("___"); return `<p class="gapline">${esc(p[0])}<input id="ans" class="inp gap" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Lücke" value="${esc(a||"")}" ${dis}>${esc(p.slice(1).join("___"))}</p>`; }
+  if (q.type === "short") return `<label class="field"><span class="muted small">Deine Antwort</span><input id="ans" class="inp short" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(a||"")}" ${dis}></label>`;
+  return `<label class="field"><span class="muted small">Schreibe in ganzen Sätzen</span><textarea id="ans" class="free" spellcheck="false" ${dis}>${esc(a||"")}</textarea></label>`;
+}
+function quiz(){
+  const t = S.test, q = t.qs[t.idx], n = t.qs.length, a = t.answers[t.idx];
+  const input = inputFor(q, a, "mc", false);
+  const open = t.answers.filter(isEmpty).length;
+  return `<section class="card"><div class="row muted small"><span class="chip" style="--c:${col(t.subject)}">${esc(subj(t.subject).short)}</span>${esc(t.topic || "Alles gemischt")}</div>
+    <div class="dots">${t.qs.map((_,i) => `<button type="button" class="dot ${i===t.idx?"cur":""} ${!isEmpty(t.answers[i])?"done":""}" data-act="jump" data-i="${i}" aria-label="Aufgabe ${i+1}">${i+1}</button>`).join("")}</div></section>
+  <section class="card"><div class="aufg"><span class="anr">Aufgabe ${t.idx+1}</span><span class="pts">${q.points} P.</span></div>
+    ${q.type === "gap" ? `<p class="muted">${esc(q.prompt || "Setze das fehlende Wort ein.")}</p>` : `<p class="qtext">${esc(q.prompt)}</p>`}
+    ${input}
+    ${t.confirm ? `<div class="notice"><p><b>${open} ${open===1?"Aufgabe ist":"Aufgaben sind"} noch leer.</b> Möchtest du trotzdem abgeben?</p><div class="row" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="submit-force">Trotzdem abgeben</button><button type="button" class="btn sm" data-act="confirm-no">Weiter arbeiten</button></div></div>` : ""}
+    <div class="nav"><button type="button" class="btn" data-act="prev" ${t.idx===0?"disabled":""}>‹ Zurück</button>${t.idx < n-1 ? `<button type="button" class="btn primary" data-act="next">Weiter ›</button>` : `<button type="button" class="btn primary" data-act="submit">Abgeben</button>`}</div></section>
+  <div class="row" style="justify-content:center">${t.abort ? `<span class="small">Wirklich abbrechen? Deine Antworten gehen verloren.</span><button type="button" class="btn red sm" data-act="abort-yes">Ja, abbrechen</button><button type="button" class="btn sm" data-act="abort-no">Nein</button>` : `<button type="button" class="btn ghost sm" data-act="abort">Schulaufgabe abbrechen</button>`}</div>`;
+}
+function grading(){ return `<section class="card center"><div class="spin"></div><h2>Deine Schulaufgabe wird korrigiert …</h2><p class="muted">Das dauert einen kleinen Moment.</p></section>`; }
+function gradeErrView(){ return `<section class="card"><h2>Die Korrektur hat nicht geklappt</h2><p class="err">${esc(S.gradeErr)}</p><div class="row"><button type="button" class="btn primary" data-act="regrade">Nochmal versuchen</button><button type="button" class="btn" data-act="grade-without">Ohne diese Aufgaben auswerten</button></div></section>`; }
+function corrList(items){
+  return items.map((it,i) => {
+    const mk = it.points == null ? `<span class="mark half">–</span>` : it.points >= it.max ? `<span class="mark ok">✓</span>` : it.points > 0 ? `<span class="mark half">½</span>` : `<span class="mark no">✗</span>`;
+    return `<div class="corr">${mk}<div class="field"><div class="row" style="justify-content:space-between"><b>Aufgabe ${i+1}</b><span class="pts">${it.points == null ? "nicht bewertet" : fmtP(it.points) + " / " + it.max + " P."}</span></div>
+      <p>${esc(it.prompt)}</p><p class="given">${it.given ? esc(it.given) : `<span class="muted">(keine Antwort)</span>`}</p>
+      ${it.points == null || it.points < it.max ? `<p class="small"><b>Richtig wäre:</b> ${esc(it.expected)}</p>` : ""}
+      ${it.feedback ? `<p class="fb">${esc(it.feedback)}</p>` : it.explanation ? `<p class="muted small">${esc(it.explanation)}</p>` : ""}</div></div>`;
+  }).join("");
+}
+function result(){
+  const r = S.last;
+  return `<section class="card"><div class="result-top"><div class="stamp"><small>Note</small><b>${r.grade}</b></div>
+      <div class="field"><p class="comment">${esc(COMMENTS[r.grade])}</p><p><b>${fmtP(r.points)} von ${fmtP(r.max)} Punkten</b> (${r.percent} %)</p><p class="muted small">${esc(subj(r.subject).short)} · ${esc(r.topic)}</p></div></div>
+    ${r.note ? `<p class="notice small">${esc(r.note)}</p>` : ""}
+    ${S.saveErr ? `<div class="err small"><p>${esc(S.saveErr)}</p><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="retry-save">Nochmal speichern</button></div></div>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="again">Noch eine Schulaufgabe</button><button type="button" class="btn" data-act="home">Zur Startseite</button></div></section>
+  <section class="card"><h2>Korrektur</h2><div>${corrList(r.items)}</div></section>`;
+}
+
+/* ---------- Elternbereich ---------- */
+function gate(){
+  return `<section class="card center"><h2>Elternbereich</h2><p class="muted">Bitte PIN eingeben</p>
+    <p class="pin ${S.pinBad?"shake":""}" aria-live="polite">${"●".repeat(S.pinIn.length)}${"○".repeat(Math.max(0,4-S.pinIn.length))}</p>
+    ${S.pinBad ? `<p class="err small">Die PIN stimmt nicht.</p>` : ""}
+    <div class="keys">${[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map(k => k==="" ? "<span></span>" : `<button type="button" data-act="pin" data-k="${k}">${k}</button>`).join("")}</div></section>`;
+}
+function parent(){
+  const tabs = [["add","Material hinzufügen"],["materials","Materialien"],["results","Ergebnisse"],["settings","Einstellungen"]];
+  let h = `<section class="card"><h1>Elternbereich</h1><nav class="tabs">${tabs.map(([k,l]) => `<button type="button" class="tab ${S.ptab===k?"on":""}" data-act="ptab" data-t="${k}">${l}</button>`).join("")}</nav></section>`;
+  if (!D().settings.pin && S.ptab !== "settings") h += `<p class="notice small">Tipp: Lege unter Einstellungen eine PIN fest, damit nur du in den Elternbereich kommst.</p>`;
+  return h + ({add:pAdd, materials:pMaterials, results:pResults, settings:pSettings}[S.ptab])();
+}
+const folderUrl = () => `https://drive.google.com/drive/folders/${S.ids.inbox}`;
+function selCount(){ return Object.keys(S.add.sel).length + S.add.local.length; }
+function gradeSelect(id, val){ return `<select id="${id}" class="fin"><option value="">Bitte wählen</option>${[1,2,3,4].map(g => `<option value="${g}" ${String(val)===String(g)?"selected":""}>Klasse ${g}</option>`).join("")}</select>`; }
+function pAdd(){
+  const A = S.add;
+  if (A.draft) return pDraft();
+  if (S.imp) return pImport();
+  const grade = A.grade || D().settings.grade || "", n = selCount();
+  const imports = (A.inbox || []).filter(f => isImport(f) && !D().processed.includes(f.id));
+  const sheets = (A.inbox || []).filter(f => !isImport(f));
+  const files = sheets.filter(f => A.showUsed || !D().processed.includes(f.id));
+  const usedCount = sheets.length - sheets.filter(f => !D().processed.includes(f.id)).length;
+  let h = imports.length ? `<section class="prep"><h2>Startpaket gefunden</h2><p class="muted">Im Ordner liegt ein fertiges Fragenpaket. Sieh es dir an und importiere es mit einem Tipp.</p>
+    <div class="list">${imports.map(f => `<div class="row" style="justify-content:space-between"><span><b>${esc(f.name)}</b> <span class="muted small">· ${fmtDate(f.createdTime)}</span></span><button type="button" class="btn primary sm" data-act="imp-open" data-id="${esc(f.id)}">Ansehen</button></div>`).join("")}</div></section>` : "";
+  if (S.impErr) h += `<p class="err small">${esc(S.impErr)}</p>`;
+  h += `<section class="card"><h2>Neue Blätter aus Google Drive</h2>
+    <p class="muted">Lege Fotos oder PDFs vom Handy in den Drive-Ordner <b>Lernheft → Neue Blätter</b>. Hier wählst du dann aus, woraus Fragen werden sollen.</p>
+    <div class="row"><a class="btn sm" href="${folderUrl()}" target="_blank" rel="noopener">Ordner in Drive öffnen</a><button type="button" class="btn sm" data-act="inbox-reload">Aktualisieren</button>${usedCount ? `<button type="button" class="btn ghost sm" data-act="toggle-used">${A.showUsed ? "Verwendete ausblenden" : `Verwendete anzeigen (${usedCount})`}</button>` : ""}</div>`;
+  if (A.inboxErr) h += `<p class="err small">${esc(A.inboxErr)}</p>`;
+  else if (!A.inbox) h += `<div class="row"><div class="spin" style="width:24px;height:24px;border-width:4px"></div><span class="muted">Ordner wird gelesen …</span></div>`;
+  else if (!files.length) h += `<p class="notice small">Im Ordner liegen keine neuen Blätter.</p>`;
+  else h += `<div class="list">` + files.map(f => { const on = !!A.sel[f.id], used = D().processed.includes(f.id);
+      return `<label class="pick ${on?"on":""}"><input type="checkbox" data-pick="${esc(f.id)}" ${on?"checked":""}>${f.thumbnailLink ? `<img src="${esc(f.thumbnailLink)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph'}))">` : `<span class="ph"></span>`}
+        <span class="grow"><span class="name">${esc(f.name)}</span><span class="muted small">${f.mimeType === "application/pdf" ? "PDF" : "Foto"} · ${fmtDate(f.createdTime)}${used ? " · schon verwendet" : ""}</span></span></label>`; }).join("") + `</div>`;
+  h += `<div class="row"><label class="btn ghost sm" for="importFile" style="cursor:pointer">Startpaket vom Tablet importieren<input type="file" id="importFile" accept=".json,application/json,text/plain" style="position:absolute;width:1px;height:1px;opacity:0"></label></div>`;
+  h += `<label class="drop" for="localFiles"><b>Oder direkt vom Tablet auswählen</b><span class="muted small">Fotos oder PDF</span><input type="file" id="localFiles" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.pdf"></label>`;
+  if (A.local.length) h += `<div class="list">${A.local.map((f,i) => `<div class="item"><span class="grow name">${esc(f.name)}</span><button type="button" class="btn ghost sm" data-act="rmlocal" data-i="${i}">Entfernen</button></div>`).join("")}</div>`;
+  h += `<p class="small ${n > MAX_FILES ? "err" : "muted"}">${n} ${n===1?"Datei":"Dateien"} ausgewählt · höchstens ${MAX_FILES} auf einmal</p></section>
+  <section class="card"><div class="grid2">
+      <div class="field"><label for="addGrade">Klasse</label>${gradeSelect("addGrade", grade)}</div>
+      <div class="field"><label for="addSubject">Fach</label><select id="addSubject" class="fin"><option value="auto">Automatisch erkennen</option>${SUBJECTS.map(s => `<option ${A.subject===s.key?"selected":""}>${esc(s.key)}</option>`).join("")}</select></div></div>
+    <div class="field"><label for="hint">Hinweis für die KI (optional)</label><textarea id="hint" class="fin" rows="2" placeholder="z. B. nur Seite 12 bis 15 aus dem PDF, Probe am Freitag">${esc(A.hint)}</textarea></div>
+    ${A.err ? `<p class="err">${esc(A.err)}</p>` : ""}
+    ${A.busy ? `<div class="row"><div class="spin" style="width:28px;height:28px;border-width:4px"></div><p>${esc(A.busy)}</p></div>`
+      : `<div class="row"><button type="button" class="btn primary" data-act="generate" ${!n || n > MAX_FILES || !grade ? "disabled" : ""}>Fragen erstellen</button>${!grade ? `<span class="muted small">Bitte zuerst die Klasse wählen.</span>` : ""}</div>`}</section>`;
+  return h;
+}
+const topicsOf = s => [...new Set(D().materials.filter(m => m.subject === s).map(m => m.topic))];
+function pDraft(){
+  const d = S.add.draft;
+  return `<section class="card"><h2>Vorschau prüfen</h2><p class="muted">${esc(d.summary)}</p>
+    <div class="grid2"><div class="field"><label for="dSubject">Fach</label><select id="dSubject" class="fin">${SUBJECTS.map(s => `<option ${d.subject===s.key?"selected":""}>${esc(s.key)}</option>`).join("")}</select></div>
+      <div class="field"><label for="dTopic">Thema</label><input id="dTopic" class="fin" list="topicList" value="${esc(d.topic)}"><datalist id="topicList">${topicsOf(d.subject).map(t => `<option value="${esc(t)}">`).join("")}</datalist></div></div>
+    <div class="grid2"><div class="field"><label for="dTitle">Bezeichnung des Materials</label><input id="dTitle" class="fin" value="${esc(d.title)}"></div>
+      <div class="field"><label for="dDate">Im Unterricht durchgenommen am</label><input type="date" id="dDate" class="fin" value="${esc(d.lessonDate)}"><span class="muted small">${d.dateSource === "blatt" ? "Vom Blatt abgelesen. Bitte kurz prüfen." : d.dateSource === "foto" ? "Kein Datum auf dem Blatt gefunden, daher das Datum des Fotos." : "Kein Datum gefunden, bitte anpassen."}</span></div></div>
+    ${d.keyPoints.length ? `<div class="field"><b class="small">Merksätze für die Tagesvorbereitung</b><ul class="merk small" style="font-size:.95rem">${d.keyPoints.map(p => `<li>${esc(p)}</li>`).join("")}</ul></div>` : ""}
+    <p class="small muted">Gleicher Themenname wie bei einem früheren Material = die Fragen landen im selben Thema.</p>
+    ${S.add.err ? `<p class="err">${esc(S.add.err)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="save-draft" ${d.saving?"disabled":""}>${d.saving ? "Wird gespeichert …" : d.questions.length + " Fragen speichern"}</button><button type="button" class="btn" data-act="discard-draft">Verwerfen</button></div></section>
+  <section class="card"><h2>Fragen</h2><div>${d.questions.map((q,i) => `<div class="qprev"><div class="grow"><span><span class="tchip">${TYPES[q.type]}</span></span><span>${esc(qPrompt(q))}</span>${q.type==="mc" ? `<span class="small muted">${q.options.map(esc).join(" · ")}</span>` : ""}<span class="small ans">${esc(qAnswer(q))}</span></div><button type="button" class="btn ghost sm" data-act="dDel" data-i="${i}">Löschen</button></div>`).join("")}</div></section>`;
+}
+function pMaterials(){
+  const ms = D().materials;
+  if (!ms.length) return `<section class="card"><h2>Noch kein Material</h2><p>Lade unter „Material hinzufügen“ das erste Arbeitsblatt hoch.</p></section>`;
+  const sorted = [...ms].sort((a,b) => SUBJECTS.findIndex(s=>s.key===a.subject) - SUBJECTS.findIndex(s=>s.key===b.subject) || a.topic.localeCompare(b.topic,"de") || b.createdAt - a.createdAt);
+  return `<section class="card"><h2>Materialien</h2>${S.matMsg ? `<p class="err small">${esc(S.matMsg)}</p>` : ""}<div class="list">` + sorted.map(m => { const open = S.openMat === m.id;
+    return `<div class="card" style="box-shadow:none;padding:14px 16px;gap:10px"><div class="row"><span class="chip" style="--c:${col(m.subject)}">${esc(subj(m.subject).short)}</span><b>${esc(m.topic)}</b></div>
+      <p class="muted small">${esc(m.title || "")} · ${(m.questions||[]).length} Fragen · Unterricht am ${fmtDate(fromIso(lessonDay(m)))}${m.source ? " · " + esc(m.source) : ""}</p>
+      ${S.confirmDel === m.id ? `<div class="notice"><p>Material mit allen Fragen löschen? Die Fotos im Drive-Ordner bleiben erhalten.</p><div class="row" style="margin-top:8px"><button type="button" class="btn red sm" data-act="mat-del-yes" data-m="${m.id}">Ja, löschen</button><button type="button" class="btn sm" data-act="mat-del-no">Abbrechen</button></div></div>` : ""}
+      <div class="row"><button type="button" class="btn sm" data-act="mat-open" data-m="${m.id}">${open ? "Fragen ausblenden" : "Fragen ansehen"}</button><button type="button" class="btn ghost sm" data-act="mat-del" data-m="${m.id}">Löschen</button></div>
+      ${open ? `<div>${(m.questions||[]).map(q => `<div class="qprev"><div class="grow"><span><span class="tchip">${TYPES[q.type]}</span></span><span>${esc(qPrompt(q))}</span><span class="small ans">${esc(qAnswer(q))}</span></div><button type="button" class="btn ghost sm" data-act="q-del" data-m="${m.id}" data-q="${q.id}">Löschen</button></div>`).join("")}</div>` : ""}</div>`; }).join("") + `</div></section>`;
+}
+function pResults(){
+  const rs = D().results;
+  if (!rs.length) return `<section class="card"><h2>Noch keine Ergebnisse</h2><p>Hier erscheinen die Schulaufgaben deines Kindes mit Note und Korrektur.</p></section>`;
+  const agg = {}; for (const r of rs){ const k = r.subject + "|" + r.topic; (agg[k] ||= {subject:r.subject, topic:r.topic, g:[]}).g.push(r.grade); }
+  const avg = o => o.g.reduce((x,y)=>x+y,0)/o.g.length;
+  const over = Object.values(agg).sort((a,b) => avg(b) - avg(a));
+  return `<section class="card"><h2>Überblick nach Thema</h2><p class="muted small">Schwächste Themen zuerst.</p><div class="list">${over.map(o => `<div class="item"><div class="grow"><b>${esc(o.topic)}</b><div class="muted small">${esc(subj(o.subject).short)} · ${o.g.length} ${o.g.length===1?"Schulaufgabe":"Schulaufgaben"} · zuletzt Note ${o.g[0]}</div></div><span class="mini-stamp" style="font-size:1.1rem">${avg(o).toFixed(1).replace(".",",")}</span></div>`).join("")}</div></section>
+    <section class="card"><h2>Alle Schulaufgaben</h2><div class="list">${rs.map(r => `<button type="button" class="item" data-act="res-open" data-r="${r.id}"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten</div></div><span class="mini-stamp">${r.grade}</span></button>${S.openRes === r.id ? `<div class="card" style="box-shadow:none">${corrList(r.items||[])}</div>` : ""}`).join("")}</div></section>`;
+}
+function pSettings(){
+  const s = D().settings, ai = aiCfg();
+  return `<section class="card"><h2>Kind</h2><div class="grid2">
+      <div class="field"><label for="sName">Name des Kindes</label><input id="sName" class="fin" value="${esc(s.childName||"")}"></div>
+      <div class="field"><label for="sGrade">Klasse</label>${gradeSelect("sGrade", s.grade||"")}</div></div>
+    <div class="field"><label for="sPin">PIN für den Elternbereich (4 Ziffern, leer = keine PIN)</label><input id="sPin" class="fin" inputmode="numeric" maxlength="4" value="${esc(s.pin||"")}" style="max-width:180px"></div>
+    ${S.setMsg ? `<p class="${S.setMsg.startsWith("Gespeichert") ? "notice" : "err"} small">${esc(S.setMsg)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="save-settings">Speichern</button></div></section>
+  <section class="card"><h2>Stundenplan</h2><p class="muted small">Tippe für jeden Schultag die Fächer an. Die App schlägt dann jeden Nachmittag die Fächer für den nächsten Tag vor.</p>
+    <div class="tt">${[1,2,3,4,5].map(d => { const sel = (S.ttDraft || {})[d] || []; return `<b>${WD[d]}</b><div class="tog">${SUBJECTS.map(x => `<button type="button" style="--c:${col(x.key)}" class="${sel.includes(x.key) ? "on" : ""}" data-act="tt-tog" data-d="${d}" data-s="${esc(x.key)}">${esc(x.short)}</button>`).join("")}</div>`; }).join("")}</div>
+    ${S.ttMsg ? `<p class="${S.ttMsg.startsWith("Gespeichert") ? "notice" : "err"} small">${esc(S.ttMsg)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="tt-save">Stundenplan speichern</button></div></section>
+  <section class="card"><h2>KI-Anbieter</h2><p class="muted small">Die gewählte KI erstellt die Fragen und korrigiert freie Antworten. Du kannst jederzeit wechseln, die gespeicherten Fragen bleiben erhalten.</p>
+    <div class="tog">${PKEYS.map(k => `<button type="button" style="--c:var(--ink)" class="${ai.provider===k?"on":""}" data-act="ai-use" data-p="${k}" ${ai.keys[k] ? "" : "disabled"}>${esc(PROVIDERS[k].name)}</button>`).join("")}</div>
+    ${S.aiMsg ? `<p class="${S.aiMsg.startsWith("Gespeichert") ? "notice" : "err"} small">${esc(S.aiMsg)}</p>` : ""}
+    ${PKEYS.map(k => { const ms = S.models[k];
+      return `<details ${ai.provider===k ? "open" : ""}><summary><b>${esc(PROVIDERS[k].long)}</b> <span class="muted small">${ai.keys[k] ? "· Schlüssel …" + esc(ai.keys[k].slice(-4)) + " · " + esc(ai.models[k] || "kein Modell") : "· noch kein Schlüssel"}</span></summary>
+        <div class="field" style="margin-top:10px">
+        ${ai.keys[k] ? (ms && ms.length ? `<label for="model_${k}">Modell</label><select id="model_${k}" class="fin" data-model="${k}">${ms.map(m => `<option ${m===ai.models[k]?"selected":""}>${esc(m)}</option>`).join("")}</select>` : `<div class="row"><button type="button" class="btn sm" data-act="load-models" data-p="${k}">Verfügbare Modelle anzeigen</button></div>`) : provSteps(k)}
+        ${keyForm(k)}</div></details>`; }).join("")}
+  </section>
+  <section class="card"><h2>Google Drive</h2><p class="small muted">Alle Fragen und Noten liegen in der Datei <i>lernheft-daten.json</i> im Ordner „Lernheft“. Teile mit deinem Sohn nur den Unterordner „Neue Blätter“, nicht den ganzen Ordner, denn darin stehen auch deine KI-Schlüssel.</p>
+    <div class="row"><a class="btn sm" href="${folderUrl()}" target="_blank" rel="noopener">Ordner „Neue Blätter“ öffnen</a><button type="button" class="btn sm" data-act="reload-data">Daten neu laden</button><button type="button" class="btn ghost sm" data-act="signout">Abmelden</button></div></section>`;
+}
+
+/* ---------- Material verarbeiten ---------- */
+function blobToB64(b){ return new Promise((res,rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); }); }
+async function prepImage(blob){
+  try{
+    const bmp = await createImageBitmap(blob, {imageOrientation:"from-image"});
+    const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width*sc); c.height = Math.round(bmp.height*sc);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const out = await new Promise(r => c.toBlob(r, "image/jpeg", .85));
+    if (out) return {blob:out, mime:"image/jpeg"};
+  }catch(e){}
+  return null;
+}
+async function toPart(blob, mime, name){
+  if (mime.startsWith("image/")){
+    const p = await prepImage(blob);
+    if (p){ blob = p.blob; mime = p.mime; }
+    else if (!PROVIDERS[aiCfg().provider].mime.includes(mime)) throw {code:"material", message:`„${name}“ hat ein Bildformat, das nicht gelesen werden kann. Bitte als JPG speichern.`};
+  } else if (mime !== "application/pdf") throw {code:"material", message:`„${name}“ ist weder Foto noch PDF.`};
+  return {size: blob.size, part:{inline_data:{mime_type:mime, data: await blobToB64(blob)}}};
+}
+function genPrompt(grade, nFiles){
+  const A = S.add;
+  const existing = catalog().map(s => `${s.key}: ${s.topics.map(t=>t.topic).join("; ")}`).join("\n");
+  return `Du bist eine erfahrene Grundschullehrerin in Deutschland. Ein Elternteil hat Unterrichtsmaterial seines Kindes hochgeladen (Arbeitsblätter oder Schulbuchseiten, ${nFiles} ${nFiles===1?"Datei":"Dateien"} im Anhang). Das Kind geht in Klasse ${grade}.
+${A.hint.trim() ? `Hinweis der Eltern: ${A.hint.trim()}` : ""}
+${A.subject !== "auto" ? `Das Fach ist: ${A.subject}.` : ""}
+${existing ? `Bereits vorhandene Themen (verwende denselben Namen, wenn das Material zu einem davon gehört):\n${existing}` : ""}
+
+Deine Aufgabe:
+1. Bestimme das Fach, genau einer dieser Werte: ${SUBJECTS.map(s=>s.key).join(", ")}.
+2. Bestimme das Thema: kurz (2 bis 5 Wörter), so wie es im Unterricht heißt, z. B. "Einmaleins mit 7" oder "Wortarten: Nomen".
+3. Gib dem Material eine kurze Bezeichnung (z. B. "Arbeitsblatt Nomen und Artikel"), fasse in 1 bis 2 Sätzen zusammen, was geübt wird, und schreibe 3 bis 5 kurze Merksätze ("keyPoints") in Du-Form, die das Kind am Abend vor der nächsten Stunde wiederholen soll (z. B. "Nomen schreibt man groß.").
+4. Lies das Datum, das auf dem Blatt oder der Seite steht (oft oben rechts, z. B. "Datum: 23.10."), und gib es als "lessonDate" zurück: genau so wie es dasteht, z. B. "23.10.2026" oder "23.10.". Bei mehreren Blättern mit verschiedenen Daten nimm das späteste. Steht kein Datum da, setze "lessonDate": null. Erfinde kein Datum.
+5. Schreibe 14 Fragen, die genau den Stoff dieses Materials abfragen: 4 vom Typ "mc", 4 "gap", 3 "short", 3 "free".
+
+Regeln für die Fragen:
+- Kindgerechte, einfache Sprache in Du-Form, passend für Klasse ${grade}.
+- Jede Frage muss ohne Bild beantwortbar sein. Nie "siehe Abbildung" oder "auf dem Arbeitsblatt".
+- Nicht nur abschreiben: stelle neue, ähnliche Aufgaben im Stil des Materials (andere Zahlen, andere Wörter, andere Beispiele).
+- Vom Leichten zum Schweren. Genau eine eindeutig richtige Lösung bei "mc", "gap" und "short". Prüfe jede Lösung sorgfältig, besonders Rechenaufgaben.
+- "mc": "prompt", "options" (3 oder 4 kurze Antworten), "correct" (Index der richtigen Antwort, beginnend bei 0).
+- "gap": "prompt" (Arbeitsanweisung), "text" (ein Satz mit genau einer Lücke, geschrieben als ___ aus drei Unterstrichen), "accepted" (Liste aller richtigen Lösungen).
+- "short": "prompt", "accepted" (Liste gültiger Antworten, z. B. Zahl oder ein Wort, auch gängige Schreibvarianten).
+- "free": "prompt" (Antwort in 1 bis 2 Sätzen), "modelAnswer" (Musterlösung), "rubric" (was für volle Punktzahl nötig ist).
+- Jede Frage hat "explanation": ein kurzer, kindgerechter Satz, warum die Lösung stimmt.
+- Wenn das Material unlesbar ist oder kein Schulstoff, antworte mit {"error": "kurze Begründung auf Deutsch"}.
+
+Antworte nur mit einem JSON-Objekt in genau dieser Form:
+{"subject":"Deutsch","topic":"Wortarten: Nomen","title":"Arbeitsblatt Nomen","summary":"…","keyPoints":["…","…","…"],"lessonDate":"23.10.2026","questions":[{"type":"mc","prompt":"…","options":["…","…","…"],"correct":0,"explanation":"…"},{"type":"gap","prompt":"Setze das passende Wort ein.","text":"Der ___ bellt laut.","accepted":["Hund"],"explanation":"…"},{"type":"short","prompt":"…","accepted":["…"],"explanation":"…"},{"type":"free","prompt":"…","modelAnswer":"…","rubric":"…","explanation":"…"}]}`;
+}
+function strList(x){ return (Array.isArray(x) ? x : x != null ? [x] : []).map(v => String(v).trim()).filter(Boolean); }
+function cleanQ(q){
+  if (!q || typeof q !== "object") return null;
+  const type = q.type, prompt = String(q.prompt || "").trim(), base = {id: rid(), type, prompt, explanation: String(q.explanation || "").trim()};
+  if (type === "mc"){ const options = strList(q.options).slice(0,5), correct = Number(q.correct); if (!prompt || options.length < 2 || !Number.isInteger(correct) || correct < 0 || correct >= options.length) return null; return {...base, options, correct}; }
+  if (type === "gap"){ const text = String(q.text || "").replace(/_{2,}/g,"___"), accepted = strList(q.accepted); if (!text.includes("___") || !accepted.length) return null; return {...base, prompt: prompt || "Setze das fehlende Wort ein.", text, accepted}; }
+  if (type === "short"){ const accepted = strList(q.accepted); if (!prompt || !accepted.length) return null; return {...base, accepted}; }
+  if (type === "free"){ const modelAnswer = String(q.modelAnswer || "").trim(); if (!prompt || !modelAnswer) return null; return {...base, modelAnswer, rubric: String(q.rubric || "").trim()}; }
+  return null;
+}
+async function generate(){
+  const A = S.add, grade = A.grade || D().settings.grade;
+  A.err = ""; A.busy = "Dateien werden geladen …"; render();
+  try{
+    const parts = [], used = [], src = {foto:0, pdf:0}; let size = 0;
+    const byId = Object.fromEntries((A.inbox || []).map(f => [f.id, f]));
+    for (const id of Object.keys(A.sel)){
+      const f = byId[id]; if (!f) continue;
+      const p = await toPart(await downloadFile(id), f.mimeType, f.name);
+      parts.push(p.part); size += p.size; used.push(id); src[f.mimeType === "application/pdf" ? "pdf" : "foto"]++;
+    }
+    for (const f of A.local){
+      const mime = f.type || (/\.pdf$/i.test(f.name) ? "application/pdf" : "image/jpeg");
+      const p = await toPart(f, mime, f.name); parts.push(p.part); size += p.size; src[mime === "application/pdf" ? "pdf" : "foto"]++;
+    }
+    if (!parts.length) throw {code:"material", message:"Bitte wähle mindestens eine Datei aus."};
+    if (size > MAX_BYTES) throw {code:"big"};
+    A.busy = `${provName()} liest das Material und schreibt Fragen … (meist 20 bis 60 Sekunden)`; render();
+    const out = await askAI([{text: genPrompt(grade, parts.length)}, ...parts], 0.7);
+    if (out && out.error && !(out.questions||[]).length) throw {code:"material", message:`${provName()} meldet: ` + out.error};
+    const questions = (Array.isArray(out && out.questions) ? out.questions : []).map(cleanQ).filter(Boolean);
+    if (!questions.length) throw {code:"json"};
+    const subject = A.subject !== "auto" ? A.subject : (SUBJECTS.find(s => s.key === out.subject) || subj("Sonstiges")).key;
+    const lessonFound = normDate(out.lessonDate);
+    const times = used.map(id => byId[id] && byId[id].createdTime).filter(Boolean).sort();
+    const photoDay = times.length ? isoDay(new Date(times[0])) : null;
+    const source = [src.foto ? `${src.foto} ${src.foto===1?"Foto":"Fotos"}` : "", src.pdf ? `${src.pdf} PDF` : ""].filter(Boolean).join(", ");
+    A.draft = {subject, topic: String(out.topic || "").trim() || "Neues Thema", title: String(out.title || "").trim(), summary: String(out.summary || "").trim(), keyPoints: strList(out.keyPoints).slice(0,5), lessonDate: lessonFound || photoDay || isoDay(new Date()), dateSource: lessonFound ? "blatt" : photoDay ? "foto" : "heute", grade:Number(grade), questions, source, used};
+  }catch(e){ A.err = aiErr(e); }
+  A.busy = false; render();
+}
+async function saveDraft(){
+  const d = S.add.draft; S.add.err = "";
+  if (!d.topic.trim()){ S.add.err = "Bitte gib ein Thema an."; return render(); }
+  if (!d.questions.length){ S.add.err = "Es ist keine Frage mehr übrig."; return render(); }
+  d.saving = true; render();
+  try{
+    const m = {id: rid() + rid(), subject:d.subject, topic:d.topic.trim(), title:d.title.trim(), summary:d.summary, keyPoints:d.keyPoints, lessonDate: d.lessonDate || isoDay(new Date()), grade:d.grade, source:d.source, createdAt:Date.now(), questions:d.questions};
+    await mutate(x => { x.materials.push(m); for (const id of d.used) if (!x.processed.includes(id)) x.processed.push(id); });
+    Object.assign(S.add, {sel:{}, local:[], hint:"", subject:"auto", grade:"", err:"", draft:null});
+    S.ptab = "materials"; S.matMsg = "";
+  }catch(e){ d.saving = false; S.add.err = driveErr(e); }
+  render();
+}
+async function loadInbox(){
+  S.add.inboxErr = ""; S.add.inbox = null; render();
+  try{ S.add.inbox = await listInbox(); }catch(e){ S.add.inboxErr = driveErr(e); }
+  if (S.view === "parent" && S.ptab === "add") render();
+}
+
+function normDate(x){
+  const t = String(x || "").trim(); if (!t) return null;
+  let y, m, d, hadYear = true, r;
+  if ((r = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))){ y = +r[1]; m = +r[2]; d = +r[3]; }
+  else if ((r = t.match(/(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*(\d{2,4})?/))){ d = +r[1]; m = +r[2]; if (r[3]) y = +r[3] < 100 ? 2000 + +r[3] : +r[3]; else hadYear = false; }
+  else return null;
+  const now = new Date(); now.setHours(12,0,0,0);
+  if (!hadYear) y = now.getFullYear();
+  let dt = new Date(y, m-1, d, 12);
+  if (dt.getMonth() !== m-1 || dt.getDate() !== d) return null;
+  if (!hadYear && dt > now) dt = new Date(y-1, m-1, d, 12);
+  if (dt.getTime() > now.getTime() + 864e5 || now - dt > 2*365*864e5) return null;
+  return isoDay(dt);
+}
+
+/* ---------- Startpaket-Import ---------- */
+function mapSubject(x){
+  const t = String(x || "").trim().toLowerCase();
+  const hit = SUBJECTS.find(s => s.key.toLowerCase() === t || s.short.toLowerCase() === t) || SUBJECTS.find(s => t && (s.key.toLowerCase().includes(t) || t.includes(s.short.toLowerCase())));
+  if (hit) return hit.key;
+  if (/sach|hsu|natur|heimat/.test(t)) return "HSU / Sachunterricht";
+  if (/reli|ethik/.test(t)) return "Religion / Ethik";
+  if (/musik|kunst|werken/.test(t)) return "Musik / Kunst";
+  return "Sonstiges";
+}
+function parseImport(text, name, fileId){
+  let obj; try{ obj = JSON.parse(String(text).replace(/^﻿/, "")); }catch(e){ throw {code:"material", message:`„${name}“ ist keine gültige Startpaket-Datei.`}; }
+  const arr = Array.isArray(obj) ? obj : Array.isArray(obj && obj.materials) ? obj.materials : [];
+  const materials = []; let skipped = 0;
+  for (const m of arr){
+    const questions = (Array.isArray(m && m.questions) ? m.questions : []).map(cleanQ).filter(Boolean);
+    const topic = String((m && m.topic) || "").trim();
+    if (!questions.length || !topic){ skipped++; continue; }
+    materials.push({subject: mapSubject(m.subject), topic, title: String(m.title || "").trim(), summary: String(m.summary || "").trim(),
+      keyPoints: strList(m.keyPoints).slice(0,5), lessonDate: normDate(m.lessonDate) || isoDay(new Date()),
+      grade: Number(m.grade) || Number(D().settings.grade) || null, source: "Startpaket", questions});
+  }
+  if (!materials.length) throw {code:"material", message:`In „${name}“ wurden keine verwendbaren Fragen gefunden.`};
+  return {name, fileId, materials, skipped, importKey: obj && obj.id ? String(obj.id) : null};
+}
+async function openImport(f){
+  S.impErr = ""; S.add.busy = "Startpaket wird gelesen …"; render();
+  try{ S.imp = parseImport(await (await downloadFile(f.id)).text(), f.name, f.id); }catch(e){ S.impErr = aiErr(e); }
+  S.add.busy = false; render();
+}
+async function doImport(){
+  const I = S.imp; I.saving = true; render();
+  try{
+    await mutate(d => {
+      d.imports = d.imports || [];
+      const k = I.importKey || I.fileId;
+      if (k && d.imports.includes(k)) return;
+      const now = Date.now();
+      I.materials.forEach((m, i) => d.materials.push({...m, id: rid() + rid(), createdAt: now + i}));
+      if (k) d.imports.push(k);
+      if (I.fileId && !d.processed.includes(I.fileId)) d.processed.push(I.fileId);
+    });
+    S.imp = null; S.ptab = "materials"; S.matMsg = "";
+  }catch(e){ I.saving = false; S.impErr = driveErr(e); }
+  render();
+}
+function pImport(){
+  const I = S.imp, groups = {};
+  for (const m of I.materials){ const k = m.subject; (groups[k] ||= {}); groups[k][m.topic] = (groups[k][m.topic] || 0) + m.questions.length; }
+  const nq = I.materials.reduce((a,m) => a + m.questions.length, 0);
+  const already = (D().imports || []).includes(I.importKey || I.fileId);
+  return `<section class="card"><h2>Startpaket importieren</h2><p class="muted">${esc(I.name)}</p>
+    <p><b>${I.materials.length} Materialien</b> mit <b>${nq} Fragen</b>${I.skipped ? ` · ${I.skipped} unvollständige Einträge werden übersprungen` : ""}</p>
+    ${already ? `<p class="notice small">Dieses Startpaket wurde schon importiert. Ein zweiter Import wird übersprungen, damit nichts doppelt vorkommt.</p>` : ""}
+    <div class="list">${Object.entries(groups).sort((a,b) => SUBJECTS.findIndex(s=>s.key===a[0]) - SUBJECTS.findIndex(s=>s.key===b[0])).map(([sj, ts]) => `<div class="item" style="flex-direction:column;align-items:flex-start"><span class="chip" style="--c:${col(sj)}">${esc(subj(sj).short)}</span><span class="small">${Object.entries(ts).map(([t,n]) => `${esc(t)} (${n})`).join(" · ")}</span></div>`).join("")}</div>
+    ${S.impErr ? `<p class="err small">${esc(S.impErr)}</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="imp-do" ${I.saving || already ? "disabled" : ""}>${I.saving ? "Wird importiert …" : "Jetzt importieren"}</button><button type="button" class="btn" data-act="imp-cancel">Abbrechen</button></div></section>`;
+}
+
+/* ---------- Korrektur ---------- */
+async function grade(force){
+  const t = S.test, strict = t.subject === "Deutsch";
+  S.view = "grading"; render();
+  const items = t.qs.map((q,i) => {
+    const a = t.answers[i];
+    const it = {key:q.key, type:q.type, prompt:qPrompt(q), max:q.points, points:null, feedback:"", explanation:q.explanation || ""};
+    if (q.type === "mc"){ it.given = a == null ? "" : q.options[a]; it.expected = q.options[q.correct]; it.points = a === q.correct ? q.points : 0; }
+    else { it.given = String(a || "").trim(); it.expected = q.type === "free" ? q.modelAnswer : q.accepted[0];
+      if (!it.given) it.points = 0; else if (q.type !== "free" && matches(it.given, q.accepted, strict)) it.points = q.points; }
+    return it;
+  });
+  const open = items.map((_,i) => i).filter(i => items[i].points == null);
+  if (open.length && !force){
+    try{
+      const tasks = open.map(i => { const q = t.qs[i]; return {i, typ:TYPES[q.type], aufgabe: q.type === "gap" ? q.prompt + " " + q.text : q.prompt, erwartet: q.type === "free" ? q.modelAnswer + (q.rubric ? " | Für volle Punkte: " + q.rubric : "") : q.accepted.join(" / "), antwort: items[i].given, max: q.points}; });
+      const prompt = `Du korrigierst eine kurze Schulaufgabe eines Kindes der Klasse ${D().settings.grade || "3"} (Grundschule) im Fach ${t.subject}. Bewerte jede Antwort fair, freundlich und kindgerecht.
+Regeln:
+- Es zählt der Inhalt. Rechtschreibung zählt nur, wenn die Aufgabe genau Rechtschreibung, Groß- und Kleinschreibung oder Wortformen prüft (meist im Fach Deutsch).
+- Vergib 0 bis max Punkte, auch halbe Punkte sind erlaubt.
+- "feedback": ein kurzer, ermutigender Satz in Du-Form, bei Fehlern mit einem Hinweis, was richtig wäre.
+Aufgaben:
+${JSON.stringify(tasks)}
+Antworte nur mit einem JSON-Objekt: {"ergebnisse":[{"i":0,"points":1,"feedback":"…"}]}`;
+      const res = await askAI([{text: prompt}], 0.2);
+      for (const r of (Array.isArray(res) ? res : (res && res.ergebnisse) || [])){
+        const it = items[Number(r.i)]; if (!it || it.points != null) continue;
+        it.points = Math.max(0, Math.min(it.max, Math.round(Number(r.points)*2)/2 || 0));
+        it.feedback = String(r.feedback || "").trim();
+      }
+    }catch(e){ S.gradeErr = aiErr(e); S.view = "gradeErr"; return render(); }
+  }
+  for (const it of items) if (it.points == null && it.type !== "free") it.points = 0;
+  const note = items.some(it => it.points == null) ? "Die freien Antworten wurden nicht bewertet und zählen nicht zur Note." : "";
+  const scored = items.filter(it => it.points != null);
+  const points = scored.reduce((s,it)=>s+it.points,0), max = scored.reduce((s,it)=>s+it.max,0), percent = max ? Math.round(points/max*100) : 0;
+  const r = {id: rid() + rid(), subject:t.subject, topic:t.topic || "Alles gemischt", createdAt:Date.now(), points, max, percent, grade:gradeOf(percent), note, items};
+  S.last = r; S.saveErr = ""; S.view = "result"; render();
+  saveResult(r);
+}
+async function saveResult(r){
+  try{ await mutate(d => { if (!d.results.some(x => x.id === r.id)) d.results.unshift(r); }); S.saveErr = ""; }
+  catch(e){ S.saveErr = e && e.code === "auth" ? "Das Ergebnis ist noch nicht gespeichert, weil die Anmeldung abgelaufen ist." : "Das Ergebnis konnte nicht gespeichert werden."; }
+  if (S.view === "result") render();
+}
+
+/* ---------- Anmelden & Laden ---------- */
+async function openApp(){
+  S.err = ""; S.busyMsg = "Anmeldung bei Google …"; go("loading");
+  try{ await requestToken(); }
+  catch(e){ S.err = e.code === "gis" ? "Die Google-Anmeldung konnte nicht geladen werden. Prüfe die Internetverbindung." : "Die Anmeldung wurde abgebrochen oder abgelehnt. Prüfe auch, ob die Client-ID und die eingetragene Adresse stimmen."; return go("signin"); }
+  try{
+    S.busyMsg = "Drive-Ordner wird vorbereitet …"; render();
+    await ensureStructure(); await reloadData(); S.signedIn = true;
+    go(aiReady() ? "home" : "aikey");
+  }catch(e){ S.err = driveErr(e); go("signin"); }
+}
+async function saveKey(p){
+  const key = ((document.getElementById("key_" + p) || {}).value || "").trim();
+  S.keyErrP = p;
+  if (!key){ S.keyErr = "Bitte den Schlüssel einfügen."; return render(); }
+  S.keyErr = ""; S.keyBusy = p; render();
+  try{
+    const ms = await listModels(p, key);
+    if (!ms.best) throw {code:"model"};
+    const activate = S.view === "aikey" || !aiReady();
+    await mutate(d => { const a = aiCfg(d); a.keys[p] = key; a.models[p] = ms.best; if (activate) a.provider = p; d.ai = a; });
+    S.models[p] = ms.all; S.keyBusy = "";
+    if (S.view === "aikey"){ S.ptab = "settings"; S.ttDraft = JSON.parse(JSON.stringify(D().settings.timetable || {})); go("parent"); }
+    else { S.aiMsg = `Gespeichert. ${PROVIDERS[p].name}-Modell: ${ms.best}${activate ? "" : ". Tippe oben auf „" + PROVIDERS[p].name + "“, um umzustellen."}`; render(); }
+  }catch(e){ S.keyBusy = ""; S.keyErr = e.code === "quota" ? "Der Schlüssel funktioniert, aber das Limit oder Guthaben ist gerade erreicht." : e.code === "auth" || e.code === "drive" ? driveErr(e) : e.code === "net" ? "Keine Internetverbindung." : "Dieser Schlüssel funktioniert nicht. Bitte prüfe, ob er vollständig kopiert wurde."; render(); }
+}
+
+/* ---------- Bedienung ---------- */
+function startTest(){
+  const qs = buildTest(S.subject, S.topic); if (!qs.length) return;
+  S.test = {subject:S.subject, topic:S.topic, qs, answers:qs.map(() => null), idx:0, confirm:false};
+  go("quiz");
+}
+async function act(b){
+  const a = b.dataset.act, t = S.test;
+  switch (a){
+    case "home": if (["quiz","grading","setup","signin","loading","aikey"].includes(S.view) || (S.view === "prep" && b.classList.contains("brand") && S.prep && S.prep.idx < S.prep.steps.length)) return; go("home"); break;
+    case "parent": S.pinIn = ""; S.pinBad = false; go(D().settings.pin ? "gate" : "parent"); if (S.view === "parent") enterParent(); break;
+    case "subject": S.subject = b.dataset.s; go("topics"); break;
+    case "topic": S.topic = b.dataset.t || null; go("intro"); break;
+    case "back-topics": go("topics"); break;
+    case "start": case "again": refreshIfNeeded(); startTest(); break;
+    case "mc": t.answers[t.idx] = Number(b.dataset.i); t.confirm = false; render(); break;
+    case "jump": t.idx = Number(b.dataset.i); t.confirm = false; render(); break;
+    case "prev": t.idx--; t.confirm = false; render(); break;
+    case "next": t.idx++; t.confirm = false; render(); break;
+    case "submit": if (t.answers.some(isEmpty)){ t.confirm = true; render(); } else { await refreshIfNeeded(); grade(false); } break;
+    case "submit-force": await refreshIfNeeded(); grade(false); break;
+    case "confirm-no": { const i = t.answers.findIndex(isEmpty); t.confirm = false; if (i >= 0) t.idx = i; render(); break; }
+    case "abort": t.abort = true; render(); break;
+    case "abort-no": t.abort = false; render(); break;
+    case "abort-yes": S.test = null; go("topics"); break;
+    case "regrade": grade(false); break;
+    case "grade-without": grade(true); break;
+    case "retry-save": await refreshIfNeeded(); saveResult(S.last); break;
+    case "pin": { const k = b.dataset.k; S.pinBad = false;
+      if (k === "⌫") S.pinIn = S.pinIn.slice(0,-1); else if (S.pinIn.length < 4) S.pinIn += k;
+      if (S.pinIn.length === 4){ if (S.pinIn === String(D().settings.pin)){ S.pinIn = ""; go("parent"); enterParent(); return; } S.pinBad = true; S.pinIn = ""; }
+      render(); break; }
+    case "ptab": S.ptab = b.dataset.t; S.setMsg = ""; S.ttMsg = ""; S.aiMsg = ""; if (S.ptab === "settings") S.ttDraft = JSON.parse(JSON.stringify(D().settings.timetable || {})); render(); if (S.ptab === "add" && !S.add.inbox) loadInbox(); break;
+    case "inbox-reload": await refreshIfNeeded(); loadInbox(); break;
+    case "toggle-used": S.add.showUsed = !S.add.showUsed; render(); break;
+    case "rmlocal": S.add.local.splice(Number(b.dataset.i),1); render(); break;
+    case "generate": await refreshIfNeeded(); generate(); break;
+    case "dDel": S.add.draft.questions.splice(Number(b.dataset.i),1); render(); break;
+    case "save-draft": await refreshIfNeeded(); saveDraft(); break;
+    case "discard-draft": S.add.draft = null; S.add.err = ""; render(); break;
+    case "mat-open": S.openMat = S.openMat === b.dataset.m ? null : b.dataset.m; render(); break;
+    case "mat-del": S.confirmDel = b.dataset.m; render(); break;
+    case "mat-del-no": S.confirmDel = null; render(); break;
+    case "mat-del-yes": { const id = b.dataset.m; await refreshIfNeeded();
+      try{ await mutate(d => { d.materials = d.materials.filter(m => m.id !== id); }); S.confirmDel = null; S.matMsg = ""; }catch(e){ S.matMsg = driveErr(e); }
+      render(); break; }
+    case "q-del": { const mid = b.dataset.m, qid = b.dataset.q; b.disabled = true; await refreshIfNeeded();
+      try{ await mutate(d => { const m = d.materials.find(x => x.id === mid); if (m) m.questions = m.questions.filter(q => q.id !== qid); }); S.matMsg = ""; }catch(e){ S.matMsg = driveErr(e); }
+      render(); break; }
+    case "prep-tog": { const k = b.dataset.s; S.prepSel = S.prepSel.includes(k) ? S.prepSel.filter(x => x !== k) : [...S.prepSel, k]; render(); break; }
+    case "prep-start": { refreshIfNeeded(); const subs = SUBJECTS.map(s => s.key).filter(k => S.prepSel.includes(k)); S.prep = buildPrep(subs, nextSchoolDay()); S.saveErr = ""; if (!S.prep.steps.length) return; go("prep"); prepTick(); break; }
+    case "pmc": S.prep.answers[S.prep.idx] = Number(b.dataset.i); render(); break;
+    case "prep-check": prepCheck(false); break;
+    case "prep-skip": prepCheck(true); break;
+    case "prep-next": S.prep.idx++; if (S.prep.idx >= S.prep.steps.length){ await refreshIfNeeded(); go("prep"); prepSave(); } else { render(); window.scrollTo(0,0); } break;
+    case "prep-quit": S.prep.idx = S.prep.steps.length; if (Object.keys(S.prep.checked).length){ await refreshIfNeeded(); go("prep"); prepSave(); } else go("home"); break;
+    case "prep-save": await refreshIfNeeded(); prepSave(); break;
+    case "tt-tog": { const d = b.dataset.d, k = b.dataset.s; const cur = S.ttDraft[d] || []; S.ttDraft[d] = cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k]; S.ttMsg = ""; render(); break; }
+    case "tt-save": { const tt = JSON.parse(JSON.stringify(S.ttDraft)); await refreshIfNeeded();
+      try{ await mutate(d => { d.settings = {...d.settings, timetable: tt}; }); S.ttMsg = "Gespeichert."; S.prepSel = null; }catch(e){ S.ttMsg = driveErr(e); }
+      render(); break; }
+    case "imp-open": { await refreshIfNeeded(); const f = (S.add.inbox || []).find(x => x.id === b.dataset.id); if (f) openImport(f); break; }
+    case "imp-do": await refreshIfNeeded(); doImport(); break;
+    case "imp-cancel": S.imp = null; S.impErr = ""; render(); break;
+    case "res-open": S.openRes = S.openRes === b.dataset.r ? null : b.dataset.r; render(); break;
+    case "save-settings": {
+      const pin = document.getElementById("sPin").value.trim();
+      if (pin && !/^\d{4}$/.test(pin)){ S.setMsg = "Die PIN muss aus genau 4 Ziffern bestehen."; return render(); }
+      const st = {childName: document.getElementById("sName").value.trim(), grade: document.getElementById("sGrade").value, pin};
+      await refreshIfNeeded();
+      try{ await mutate(d => { d.settings = {...d.settings, ...st}; }); S.setMsg = "Gespeichert."; }catch(e){ S.setMsg = driveErr(e); }
+      render(); break; }
+    case "load-models": { const p = b.dataset.p; try{ S.models[p] = (await listModels(p, aiCfg().keys[p])).all; S.aiMsg = ""; }catch(e){ S.aiMsg = "Modelle konnten nicht geladen werden. Prüfe den Schlüssel."; } render(); break; }
+    case "save-key": await refreshIfNeeded(); saveKey(b.dataset.p); break;
+    case "aikey-p": S.aikeyP = b.dataset.p; S.keyErr = ""; render(); break;
+    case "ai-use": { const p = b.dataset.p; await refreshIfNeeded();
+      try{ await mutate(d => { const a = aiCfg(d); a.provider = p; d.ai = a; }); S.aiMsg = `Gespeichert. Die App nutzt jetzt ${PROVIDERS[p].name}.`; }catch(e){ S.aiMsg = driveErr(e); }
+      render(); break; }
+    case "reload-data": await refreshIfNeeded(); try{ await reloadData(); S.setMsg = "Gespeichert. Daten sind aktuell."; }catch(e){ S.setMsg = driveErr(e); } render(); break;
+    case "signout": if (token && gisReady()) google.accounts.oauth2.revoke(token, () => {}); token = null; S.signedIn = false; S.D = EMPTY(); go("signin"); break;
+    case "copy-origin": try{ await navigator.clipboard.writeText(location.origin); b.textContent = "Kopiert"; }catch(e){ const r = document.createRange(); r.selectNodeContents(document.getElementById("origin")); getSelection().removeAllRanges(); getSelection().addRange(r); } break;
+    case "save-client": { const v = document.getElementById("clientId").value.trim();
+      if (!/\.apps\.googleusercontent\.com$/.test(v)){ S.err = "Die Client-ID endet auf .apps.googleusercontent.com. Bitte vollständig kopieren."; return render(); }
+      cfg.clientId = v; lsSet("lernheft.cfg", cfg); tokenClient = null; S.err = ""; go("signin"); break; }
+    case "edit-client": S.err = ""; go("setup"); break;
+    case "signin": openApp(); break;
+  }
+}
+function enterParent(){ if (!S.ttDraft) S.ttDraft = JSON.parse(JSON.stringify(D().settings.timetable || {})); if (S.ptab === "add" && !S.add.inbox) loadInbox(); }
+
+$app.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (b && !b.disabled) act(b); });
+$app.addEventListener("input", e => {
+  const el = e.target;
+  if (el.id === "ans" && S.view === "prep" && S.prep){ S.prep.answers[S.prep.idx] = el.value; const c = $app.querySelector('[data-act="prep-check"]'); if (c) c.disabled = !el.value.trim(); }
+  else if (el.id === "ans" && S.test){ S.test.answers[S.test.idx] = el.value; const d = $app.querySelector(`.dot[data-i="${S.test.idx}"]`); if (d) d.classList.toggle("done", !!el.value.trim()); }
+  else if (el.id === "hint") S.add.hint = el.value;
+  else if (el.id === "dTopic") S.add.draft.topic = el.value;
+  else if (el.id === "dTitle") S.add.draft.title = el.value;
+  else if (el.id === "dDate"){ S.add.draft.lessonDate = el.value; S.add.draft.dateSource = "hand"; }
+});
+$app.addEventListener("change", async e => {
+  const el = e.target;
+  if (el.dataset.pick){ if (el.checked) S.add.sel[el.dataset.pick] = true; else delete S.add.sel[el.dataset.pick]; render(); }
+  else if (el.id === "localFiles"){ S.add.local.push(...el.files); render(); }
+  else if (el.id === "importFile" && el.files[0]){ const f = el.files[0]; S.impErr = ""; try{ S.imp = parseImport(await f.text(), f.name, null); }catch(err){ S.impErr = aiErr(err); } render(); }
+  else if (el.id === "addGrade"){ S.add.grade = el.value; render(); }
+  else if (el.id === "addSubject") S.add.subject = el.value;
+  else if (el.id === "dSubject"){ S.add.draft.subject = el.value; render(); }
+  else if (el.dataset.model){ const p = el.dataset.model, m = el.value; await refreshIfNeeded(); try{ await mutate(d => { const x = aiCfg(d); x.models[p] = m; d.ai = x; }); S.aiMsg = `Gespeichert. ${PROVIDERS[p].name}-Modell: ${m}`; }catch(err){ S.aiMsg = driveErr(err); } render(); }
+});
+$app.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || e.target.id !== "ans" || e.target.tagName !== "INPUT") return;
+  if (S.view === "prep" && S.prep){ e.preventDefault(); if (!isEmpty(S.prep.answers[S.prep.idx])) prepCheck(false); }
+  else if (S.view === "quiz" && S.test && S.test.idx < S.test.qs.length - 1){ e.preventDefault(); S.test.idx++; render(); }
+});
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !S.signedIn || !tokenFresh() || !["home","topics"].includes(S.view)) return;
+  try{ await reloadData(); render(); }catch(e){}
+});
+render();
+</script>
+
+</body>
+</html>
