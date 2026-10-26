@@ -361,7 +361,7 @@ function parseJson(t){
 function aiCfg(d = S.D){
   const a = (d && d.ai) || {};
   if (a.key && !a.keys) return {provider:"gemini", keys:{gemini:a.key}, models:{gemini:a.model}};
-  return {provider: a.provider || "gemini", keys: {...(a.keys || {})}, models: {...(a.models || {})}};
+  return {provider: a.provider || "gemini", keys: {...(a.keys || {})}, models: {...(a.models || {})}, quick: {...(a.quick || {})}};
 }
 function aiReady(){ const a = aiCfg(); return !!(a.keys[a.provider] && a.models[a.provider]); }
 const provName = () => PROVIDERS[aiCfg().provider].name;
@@ -421,7 +421,8 @@ async function callOpenAI(parts, key, model){
 }
 async function askAI(parts, temperature = 0.6, limitMs = 90000){
   aiLimitMs = limitMs;
-  const a = aiCfg(), p = a.provider, key = a.keys[p], model = a.models[p];
+  const a = aiCfg(), p = a.provider, key = a.keys[p];
+  const model = limitMs <= 45000 && a.quick[p] ? a.quick[p] : a.models[p];
   if (!key || !model) throw {code:"key"};
   const call = () => ({gemini:callGemini, claude:callClaude, openai:callOpenAI}[p])(parts, key, model, temperature);
   let text;
@@ -439,7 +440,7 @@ function aiErr(e){
   const c = e && e.code, n = provName(), free = aiCfg().provider === "gemini";
   if (c === "quota") return free ? "Das kostenlose Gemini-Kontingent ist gerade aufgebraucht. Warte ein paar Minuten (oder bis morgen) und versuche es dann nochmal." : `Bei ${n} ist das Guthaben oder Limit erreicht. Prüfe dein Konto beim Anbieter oder stelle im Elternbereich auf einen anderen Anbieter um.`;
   if (c === "key") return `Der ${n}-Schlüssel fehlt oder wird nicht akzeptiert. Prüfe ihn im Elternbereich unter Einstellungen.`;
-  if (c === "model") return `Das eingestellte ${n}-Modell ist nicht verfügbar. Wähle unter Einstellungen ein anderes Modell.`;
+  if (c === "model") return `Das eingestellte ${n}-Modell ist nicht verfügbar.` + (aiCfg().provider === "gemini" ? " Tippe im Elternbereich unter Einstellungen → KI-Anbieter auf „Funktionierendes Modell automatisch finden“." : " Wähle unter Einstellungen ein anderes Modell.");
   if (c === "big") return "Das ist zu viel Material auf einmal. Bitte weniger oder kleinere Dateien auswählen.";
   if (c === "json") return `Die Antwort von ${n} war unvollständig. Bitte nochmal versuchen, eventuell mit weniger Seiten.`;
   if (c === "blocked") return `${n} hat keine Antwort geliefert. Bitte prüfe, ob das Material Schulstoff ist, und versuche es nochmal.`;
@@ -475,6 +476,48 @@ async function listModels(p, key){
   const bad = /(audio|realtime|tts|transcribe|image|search|instruct|embedding|codex|moderation|dall|whisper|preview|nano|\d{4}-\d{2}-\d{2})/i, re = /^gpt-(\d+(?:\.\d+)?)/;
   const gpt = ids.filter(id => /^gpt-[\d.]+/.test(id) && !bad.test(id)).sort((a,b) => ver(b,re) - ver(a,re));
   return {best: gpt.find(id => /^gpt-[\d.]+-mini$/.test(id)) || gpt.find(id => /^gpt-[\d.]+$/.test(id)) || gpt[0] || ids[0] || "", all: gpt.length ? gpt : ids};
+}
+
+/* Probiert Gemini-Modelle der Reihe nach aus und nimmt die ersten, die wirklich antworten. */
+function geminiCandidates(all){
+  const re = /^gemini-(\d+(?:\.\d+)?)/, v = n => { const m = n.match(re); return m ? parseFloat(m[1]) : 0; };
+  const skip = /(live|tts|image|audio|transcribe|embed|robotics|computer|native|exp|-\d{3}$)/i;
+  const ok = all.filter(n => /^gemini-/.test(n) && !skip.test(n));
+  const flash = ok.filter(n => /-flash$/.test(n)).sort((a,b) => v(b) - v(a));
+  const lite = ok.filter(n => /-flash-lite$/.test(n)).sort((a,b) => v(b) - v(a));
+  const rest = ok.filter(n => !flash.includes(n) && !lite.includes(n) && !/pro/i.test(n)).sort((a,b) => v(b) - v(a));
+  return {main: [...flash, ...rest, ...lite], quick: [...lite, ...flash]};
+}
+async function probeGemini(key, model){
+  const old = aiLimitMs; aiLimitMs = 25000;
+  try{ const t = await callGemini([{text:'Antworte nur mit diesem JSON: {"ok":true}'}], key, model, 0); return !!parseJson(t || "{}").ok; }
+  catch(e){ if (e && e.code === "key") throw e; return false; }
+  finally{ aiLimitMs = old; }
+}
+async function findGeminiModels(key, onStep){
+  const all = (await listModels("gemini", key)).all, c = geminiCandidates(all), tried = {};
+  const test = async m => { if (!(m in tried)){ onStep && onStep(m); tried[m] = await probeGemini(key, m); } return tried[m]; };
+  let main = "", quick = "";
+  for (const m of c.quick.slice(0, 4)) if (await test(m)){ quick = m; break; }
+  for (const m of c.main.slice(0, 6)) if (await test(m)){ main = m; break; }
+  if (!main) main = quick;
+  if (!quick) quick = main;
+  return {main, quick, all, tried};
+}
+async function autoGemini(){
+  const key = aiCfg().keys.gemini; if (!key) return;
+  S.gemBusy = "Suche ein funktionierendes Modell …"; S.aiMsg = ""; render();
+  try{
+    const r = await findGeminiModels(key, m => { S.gemBusy = `Teste ${m} …`; const el = document.getElementById("gemBusy"); if (el) el.textContent = S.gemBusy; });
+    if (!r.main) throw {code:"model"};
+    await refreshIfNeeded();
+    await mutate(d => { const a = aiCfg(d); a.models.gemini = r.main; a.quick.gemini = r.quick; d.ai = a; });
+    S.models.gemini = r.all;
+    S.aiMsg = `Gespeichert. Gemini nutzt jetzt ${r.main}${r.quick !== r.main ? ` und zum Korrigieren das schnelle ${r.quick}` : ""}.`;
+  }catch(e){
+    S.aiMsg = e && e.code === "key" ? "Der Gemini-Schlüssel wird nicht akzeptiert. Trag ihn bitte neu ein." : e && e.code === "model" ? "Gerade antwortet kein Gemini-Modell. Das kostenlose Kontingent ist vermutlich für heute aufgebraucht oder Google ist überlastet. Versuche es später nochmal oder nutze Claude." : aiErr(e);
+  }
+  S.gemBusy = ""; render();
 }
 
 /* ---------- Daten-Helfer ---------- */
@@ -629,7 +672,7 @@ function signin(){
 function loading(){ return `<section class="card center"><div class="spin"></div><p class="muted">${esc(S.busyMsg || "Lernheft wird geöffnet …")}</p></section>`; }
 function keyForm(p){
   const P = PROVIDERS[p];
-  return `<div class="field"><label for="key_${p}">${esc(P.name)}-API-Schlüssel</label><input id="key_${p}" class="fin" autocomplete="off" spellcheck="false" placeholder="${esc(P.hint)}"></div>
+  return `<div class="field"><label for="key_${p}">${aiCfg().keys[p] ? "Neuen " + esc(P.name) + "-Schlüssel eintragen (der gespeicherte bleibt sonst erhalten)" : esc(P.name) + "-API-Schlüssel"}</label><input id="key_${p}" class="fin" autocomplete="off" spellcheck="false" placeholder="${esc(P.hint)}"></div>
     ${S.keyErr && S.keyErrP === p ? `<p class="err small">${esc(S.keyErr)}</p>` : ""}
     <div class="row"><button type="button" class="btn primary sm" data-act="save-key" data-p="${p}" ${S.keyBusy ? "disabled" : ""}>${S.keyBusy === p ? "Wird geprüft …" : "Schlüssel prüfen und speichern"}</button></div>`;
 }
@@ -939,9 +982,11 @@ function pSettings(){
     <div class="row"><button type="button" class="btn sm" data-act="ai-test" ${S.aiTesting ? "disabled" : ""}>${S.aiTesting ? "Wird getestet …" : "Verbindung testen"}</button></div>
     ${S.aiMsg ? `<p class="${/^(Gespeichert|Verbindung klappt)/.test(S.aiMsg) ? "notice" : "err"} small">${esc(S.aiMsg)}</p>` : ""}
     ${PKEYS.map(k => { const ms = S.models[k];
-      return `<details ${ai.provider===k ? "open" : ""}><summary><b>${esc(PROVIDERS[k].long)}</b> <span class="muted small">${ai.keys[k] ? "· Schlüssel …" + esc(ai.keys[k].slice(-4)) + " · " + esc(ai.models[k] || "kein Modell") : "· noch kein Schlüssel"}</span></summary>
+      return `<details ${ai.provider===k ? "open" : ""}><summary><b>${esc(PROVIDERS[k].long)}</b> <span class="muted small">${ai.keys[k] ? "· Schlüssel …" + esc(ai.keys[k].slice(-4)) + " · " + esc(ai.models[k] || "kein Modell") + (ai.quick[k] && ai.quick[k] !== ai.models[k] ? " · Korrigieren: " + esc(ai.quick[k]) : "") : "· noch kein Schlüssel"}</span></summary>
         <div class="field" style="margin-top:10px">
-        ${ai.keys[k] ? (ms && ms.length ? `<label for="model_${k}">Modell</label><select id="model_${k}" class="fin" data-model="${k}">${ms.map(m => `<option ${m===ai.models[k]?"selected":""}>${esc(m)}</option>`).join("")}</select>` : `<div class="row"><button type="button" class="btn sm" data-act="load-models" data-p="${k}">Verfügbare Modelle anzeigen</button></div>`) : provSteps(k)}
+        ${k === "gemini" && ai.keys[k] ? `<div class="row">${S.gemBusy ? `<div class="spin" style="width:22px;height:22px;border-width:3px"></div><span class="small" id="gemBusy">${esc(S.gemBusy)}</span>` : `<button type="button" class="btn primary sm" data-act="gem-auto">Funktionierendes Modell automatisch finden</button>`}</div>` : ""}
+        ${ai.keys[k] ? (ms && ms.length ? `<label for="model_${k}">Modell zum Erstellen</label><select id="model_${k}" class="fin" data-model="${k}">${ms.map(m => `<option ${m===ai.models[k]?"selected":""}>${esc(m)}</option>`).join("")}</select>
+          <label for="quick_${k}">Modell zum Korrigieren (schnell)</label><select id="quick_${k}" class="fin" data-quick="${k}"><option value="">wie oben</option>${ms.map(m => `<option ${m===ai.quick[k]?"selected":""}>${esc(m)}</option>`).join("")}</select>` : `<div class="row"><button type="button" class="btn sm" data-act="load-models" data-p="${k}">Modelle selbst auswählen</button></div>`) : provSteps(k)}
         ${keyForm(k)}</div></details>`; }).join("")}
   </section>
   <section class="card"><h2>Google Drive</h2><p class="small muted">Alle Fragen und Noten liegen in der Datei <i>lernheft-daten.json</i> im Ordner „Lernheft“. Teile mit deinem Sohn nur den Unterordner „Neue Blätter“, nicht den ganzen Ordner, denn darin stehen auch deine KI-Schlüssel.</p>
@@ -1209,14 +1254,22 @@ async function saveKey(p){
   if (!key){ S.keyErr = "Bitte den Schlüssel einfügen."; return render(); }
   S.keyErr = ""; S.keyBusy = p; render();
   try{
-    const ms = await listModels(p, key);
-    if (!ms.best) throw {code:"model"};
+    let ms, quick = "";
+    if (p === "gemini"){
+      const r = await findGeminiModels(key, m => { const el = document.querySelector('[data-act="save-key"][data-p="gemini"]'); if (el) el.textContent = `Teste ${m} …`; });
+      if (!r.main) throw {code:"model"};
+      ms = {best:r.main, all:r.all}; quick = r.quick;
+    } else {
+      ms = await listModels(p, key);
+      if (!ms.best) throw {code:"model"};
+      if (p === "claude") quick = ms.all.find(id => /haiku/i.test(id)) || "";
+    }
     const activate = S.view === "aikey" || !aiReady();
-    await mutate(d => { const a = aiCfg(d); a.keys[p] = key; a.models[p] = ms.best; if (activate) a.provider = p; d.ai = a; });
+    await mutate(d => { const a = aiCfg(d); a.keys[p] = key; a.models[p] = ms.best; if (quick) a.quick[p] = quick; else delete a.quick[p]; if (activate) a.provider = p; d.ai = a; });
     S.models[p] = ms.all; S.keyBusy = "";
     if (S.view === "aikey"){ S.ptab = "settings"; S.ttDraft = JSON.parse(JSON.stringify(D().settings.timetable || {})); go("parent"); }
     else { S.aiMsg = `Gespeichert. ${PROVIDERS[p].name}-Modell: ${ms.best}${activate ? "" : ". Tippe oben auf „" + PROVIDERS[p].name + "“, um umzustellen."}`; render(); }
-  }catch(e){ S.keyBusy = ""; S.keyErr = e.code === "quota" ? "Der Schlüssel funktioniert, aber das Limit oder Guthaben ist gerade erreicht." : e.code === "auth" || e.code === "drive" ? driveErr(e) : e.code === "net" ? "Keine Internetverbindung." : "Dieser Schlüssel funktioniert nicht. Bitte prüfe, ob er vollständig kopiert wurde."; render(); }
+  }catch(e){ S.keyBusy = ""; S.keyErr = e.code === "model" ? "Der Schlüssel ist gültig, aber gerade antwortet kein Modell. Vermutlich ist das kostenlose Tageskontingent aufgebraucht. Versuche es später nochmal." : e.code === "quota" ? "Der Schlüssel funktioniert, aber das Limit oder Guthaben ist gerade erreicht." : e.code === "auth" || e.code === "drive" ? driveErr(e) : e.code === "net" ? "Keine Internetverbindung." : "Dieser Schlüssel funktioniert nicht. Bitte prüfe, ob er vollständig kopiert wurde."; render(); }
 }
 
 /* ---------- Vorlesen (Tablet-Stimme) ---------- */
@@ -1658,6 +1711,7 @@ async function act(b){
       render(); break; }
     case "load-models": { const p = b.dataset.p; try{ S.models[p] = (await listModels(p, aiCfg().keys[p])).all; S.aiMsg = ""; }catch(e){ S.aiMsg = "Modelle konnten nicht geladen werden. Prüfe den Schlüssel."; } render(); break; }
     case "save-key": await refreshIfNeeded(); saveKey(b.dataset.p); break;
+    case "gem-auto": autoGemini(); break;
     case "ai-test": S.aiTesting = true; S.aiMsg = ""; render();
       try{ const r = await askAI([{text:'Antworte nur mit diesem JSON: {"ok":true}'}], 0, 30000); S.aiMsg = r && r.ok ? `Verbindung klappt. ${provName()} antwortet (Modell ${aiCfg().models[aiCfg().provider]}).` : `${provName()} antwortet, aber unerwartet.`; }
       catch(e){ S.aiMsg = aiErr(e); }
@@ -1701,6 +1755,7 @@ $app.addEventListener("change", async e => {
   else if (el.id === "addGrade"){ S.add.grade = el.value; render(); }
   else if (el.id === "addSubject") S.add.subject = el.value;
   else if (el.id === "dSubject"){ S.add.draft.subject = el.value; render(); }
+  else if (el.dataset.quick){ const p = el.dataset.quick, m = el.value; await refreshIfNeeded(); try{ await mutate(d => { const x = aiCfg(d); if (m) x.quick[p] = m; else delete x.quick[p]; d.ai = x; }); S.aiMsg = `Gespeichert. Korrigieren mit: ${m || "wie oben"}`; }catch(err){ S.aiMsg = driveErr(err); } render(); }
   else if (el.dataset.model){ const p = el.dataset.model, m = el.value; await refreshIfNeeded(); try{ await mutate(d => { const x = aiCfg(d); x.models[p] = m; d.ai = x; }); S.aiMsg = `Gespeichert. ${PROVIDERS[p].name}-Modell: ${m}`; }catch(err){ S.aiMsg = driveErr(err); } render(); }
 });
 $app.addEventListener("keydown", e => {
