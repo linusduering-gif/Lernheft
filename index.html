@@ -275,15 +275,20 @@ function initGis(){
   return true;
 }
 /* Muss direkt aus einem Klick heraus aufgerufen werden, sonst blockiert der Browser das Anmeldefenster. */
+let tokenPending = null;
 function requestToken(){
-  return new Promise((res, rej) => {
+  if (tokenPending) return tokenPending;
+  tokenPending = new Promise((res, rej) => {
     if (!initGis()) return rej({code:"gis"});
-    tokenWait = {res, rej};
-    tokenClient.requestAccessToken({prompt: ""});
-  });
+    const tm = setTimeout(() => { if (tokenWait){ tokenWait = null; rej({code:"auth", message:"timeout"}); } }, 60000);
+    tokenWait = {res: v => { clearTimeout(tm); res(v); }, rej: e => { clearTimeout(tm); rej(e); }};
+    try{ tokenClient.requestAccessToken({prompt: ""}); }catch(e){ clearTimeout(tm); tokenWait = null; rej({code:"auth"}); }
+  }).finally(() => { tokenPending = null; });
+  return tokenPending;
 }
 const tokenFresh = (ms = 5*60*1000) => token && Date.now() < tokenExp - ms;
-function refreshIfNeeded(){ if (S.signedIn && !tokenFresh(10*60*1000)) return requestToken().catch(() => null); return Promise.resolve(token); }
+/* Erneuert die Google-Anmeldung, blockiert aber nie länger als 12 Sekunden. */
+function refreshIfNeeded(){ if (S.signedIn && !tokenFresh(10*60*1000)) return Promise.race([requestToken().catch(() => null), new Promise(r => setTimeout(() => r(null), 12000))]); return Promise.resolve(token); }
 
 /* ---------- Google Drive ---------- */
 async function gapi(path, opts = {}){
@@ -368,17 +373,29 @@ function httpErr(status, m){
   if (status === 500 || status === 502 || status === 503 || status === 504 || status === 529 || /overload|unavailable|try again/i.test(m)) return {code:"busy", message:m, status};
   return {code:"ai", message:m, status};
 }
+let aiLimitMs = 90000, aiAbort = null;
 async function post(url, headers, body){
-  let r;
-  try{ r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json", ...headers}, body: JSON.stringify(body)}); }
-  catch(e){ throw {code:"net", message: String((e && e.message) || e)}; }
+  let r; const ctl = new AbortController(); aiAbort = ctl;
+  const tm = setTimeout(() => { ctl.timedOut = true; ctl.abort(); }, aiLimitMs);
+  try{ r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json", ...headers}, body: JSON.stringify(body), signal: ctl.signal}); }
+  catch(e){ clearTimeout(tm); if (ctl.timedOut) throw {code:"timeout"}; if (ctl.signal.aborted) throw {code:"cancelled"}; throw {code:"net", message: String((e && e.message) || e)}; }
+  clearTimeout(tm);
   if (!r.ok){ let m = ""; try{ const j = await r.json(); m = (j.error && (j.error.message || j.error.type)) || ""; }catch(e){} throw httpErr(r.status, m); }
   return r.json();
 }
 const isFile = p => p.text == null;
+let gemThink = true;
 async function callGemini(parts, key, model, temperature){
-  const j = await post(`${GEM}models/${encodeURIComponent(model)}:generateContent`, {"x-goog-api-key":key},
-    {contents:[{role:"user", parts}], generationConfig:{temperature, responseMimeType:"application/json"}});
+  const url = `${GEM}models/${encodeURIComponent(model)}:generateContent`, gc = {temperature, responseMimeType:"application/json"};
+  /* Kurze Aufgaben (Korrigieren) mit wenig "Nachdenken", damit Gemini schnell antwortet. */
+  const quick = aiLimitMs <= 45000 && gemThink;
+  let j;
+  try{ j = await post(url, {"x-goog-api-key":key}, {contents:[{role:"user", parts}], generationConfig: quick ? {...gc, thinkingConfig:{thinkingLevel:"low"}} : gc}); }
+  catch(e){
+    if (!quick || !e || e.code === "timeout" || e.code === "cancelled" || !/thinking/i.test(e.message || "")) throw e;
+    gemThink = false;
+    j = await post(url, {"x-goog-api-key":key}, {contents:[{role:"user", parts}], generationConfig: gc});
+  }
   const c = j.candidates && j.candidates[0];
   return c && c.content ? (c.content.parts||[]).filter(p => !p.thought).map(p => p.text || "").join("") : "";
 }
@@ -402,7 +419,8 @@ async function callOpenAI(parts, key, model){
     {model, messages:[{role:"user", content}], response_format:{type:"json_object"}});
   return (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
 }
-async function askAI(parts, temperature = 0.6){
+async function askAI(parts, temperature = 0.6, limitMs = 90000){
+  aiLimitMs = limitMs;
   const a = aiCfg(), p = a.provider, key = a.keys[p], model = a.models[p];
   if (!key || !model) throw {code:"key"};
   const call = () => ({gemini:callGemini, claude:callClaude, openai:callOpenAI}[p])(parts, key, model, temperature);
@@ -427,6 +445,8 @@ function aiErr(e){
   if (c === "blocked") return `${n} hat keine Antwort geliefert. Bitte prüfe, ob das Material Schulstoff ist, und versuche es nochmal.`;
   if (c === "material") return e.message;
   if (c === "auth" || c === "drive") return driveErr(e);
+  if (c === "timeout") return `${n} hat zu lange nicht geantwortet. Das kostenlose Gemini ist manchmal sehr langsam. Versuche es nochmal oder werte ohne die freien Antworten aus.`;
+  if (c === "cancelled") return "Abgebrochen.";
   if (c === "busy") return `${n} ist gerade überlastet. Warte eine Minute und versuche es dann nochmal.`;
   const det = [e && e.status ? "Fehler " + e.status : "", e && e.message ? String(e.message).slice(0, 200) : ""].filter(Boolean).join(": ");
   if (c === "net") return `Das Lernheft erreicht ${n} nicht. Häufige Ursachen: ein Werbeblocker oder Inhaltsfilter im Browser, Jugendschutz-Einstellungen oder ein Schul-/Firmen-WLAN, das den Dienst sperrt.` + (det ? ` (Technisch: ${det})` : "");
@@ -760,7 +780,7 @@ function quiz(){
     <div class="nav"><button type="button" class="btn" data-act="prev" ${t.idx===0?"disabled":""}>‹ Zurück</button>${t.idx < n-1 ? `<button type="button" class="btn primary" data-act="next">Weiter ›</button>` : `<button type="button" class="btn primary" data-act="submit">Abgeben</button>`}</div></section>
   <div class="row" style="justify-content:center">${t.abort ? `<span class="small">Wirklich abbrechen? Deine Antworten gehen verloren.</span><button type="button" class="btn red sm" data-act="abort-yes">Ja, abbrechen</button><button type="button" class="btn sm" data-act="abort-no">Nein</button>` : `<button type="button" class="btn ghost sm" data-act="abort">Schulaufgabe abbrechen</button>`}</div>`;
 }
-function grading(){ return `<section class="card center"><div class="spin"></div><h2>Deine Schulaufgabe wird korrigiert …</h2><p class="muted">Das dauert einen kleinen Moment.</p></section>`; }
+function grading(){ return `<section class="card center"><div class="spin"></div><h2>Deine Probe wird korrigiert …</h2><p class="small muted" id="gradeClock">0 Sekunden</p><div id="gradeSkip" hidden><p class="small">Das dauert gerade länger als sonst.</p><div class="row" style="justify-content:center"><button type="button" class="btn sm" data-act="grade-cancel">Abbrechen</button><button type="button" class="btn sm" data-act="grade-without">Ohne die freien Antworten auswerten</button></div></div><p class="muted">Das dauert einen kleinen Moment.</p></section>`; }
 function gradeErrView(){ return `<section class="card"><h2>Die Korrektur hat nicht geklappt</h2><p class="err">${esc(S.gradeErr)}</p><div class="row"><button type="button" class="btn primary" data-act="regrade">Nochmal versuchen</button><button type="button" class="btn" data-act="grade-without">Ohne diese Aufgaben auswerten</button></div></section>`; }
 function corrList(items){
   return items.map((it,i) => {
@@ -1008,7 +1028,7 @@ async function generate(){
     if (!parts.length) throw {code:"material", message:"Bitte wähle mindestens eine Datei aus."};
     if (size > MAX_BYTES) throw {code:"big"};
     A.busy = `${provName()} liest das Material und schreibt Fragen … (meist 20 bis 60 Sekunden)`; render();
-    const out = await askAI([{text: genPrompt(grade, parts.length)}, ...parts], 0.7);
+    const out = await askAI([{text: genPrompt(grade, parts.length)}, ...parts], 0.7, 180000);
     if (out && out.error && !(out.questions||[]).length) throw {code:"material", message:`${provName()} meldet: ` + out.error};
     const questions = (Array.isArray(out && out.questions) ? out.questions : []).map(cleanQ).filter(Boolean);
     if (!questions.length) throw {code:"json"};
@@ -1117,9 +1137,16 @@ function pImport(){
 }
 
 /* ---------- Korrektur ---------- */
+let gradeRun = 0, gradeTimer = null;
 async function grade(force){
+  const run = ++gradeRun;
+  if (aiAbort && force) try{ aiAbort.abort(); }catch(e){}
   const t = S.test, strict = t.subject === "Deutsch";
   S.view = "grading"; render();
+  const g0 = Date.now(); clearInterval(gradeTimer);
+  gradeTimer = setInterval(() => { if (S.view !== "grading" || run !== gradeRun) return clearInterval(gradeTimer);
+    const sec = Math.round((Date.now() - g0) / 1000), c = document.getElementById("gradeClock"), k = document.getElementById("gradeSkip");
+    if (c) c.textContent = sec + " Sekunden"; if (k && sec >= 15) k.hidden = false; }, 1000);
   const items = t.qs.map((q,i) => {
     const a = t.answers[i];
     const it = {key:q.key, type:q.type, prompt:qPrompt(q), max:q.points, points:null, feedback:"", explanation:q.explanation || "", src:q.src || ""};
@@ -1140,19 +1167,22 @@ Regeln:
 Aufgaben:
 ${JSON.stringify(tasks)}
 Antworte nur mit einem JSON-Objekt: {"ergebnisse":[{"i":0,"points":1,"feedback":"…"}]}`;
-      const res = await askAI([{text: prompt}], 0.2);
+      const res = await askAI([{text: prompt}], 0.2, 45000);
+      if (run !== gradeRun) return;
       for (const r of (Array.isArray(res) ? res : (res && res.ergebnisse) || [])){
         const it = items[Number(r.i)]; if (!it || it.points != null) continue;
         it.points = Math.max(0, Math.min(it.max, Math.round(Number(r.points)*2)/2 || 0));
         it.feedback = String(r.feedback || "").trim();
       }
-    }catch(e){ S.gradeErr = aiErr(e && e.code ? e : {code:"ai", message: String((e && e.message) || e)}); S.view = "gradeErr"; return render(); }
+    }catch(e){ if (run !== gradeRun) return; clearInterval(gradeTimer); S.gradeErr = aiErr(e && e.code ? e : {code:"ai", message: String((e && e.message) || e)}); S.view = "gradeErr"; return render(); }
   }
   for (const it of items) if (it.points == null && it.type !== "free") it.points = 0;
   const note = items.some(it => it.points == null) ? "Die freien Antworten wurden nicht bewertet und zählen nicht zur Note." : "";
   const scored = items.filter(it => it.points != null);
   const points = scored.reduce((s,it)=>s+it.points,0), max = scored.reduce((s,it)=>s+it.max,0), percent = max ? Math.round(points/max*100) : 0;
   const r = {id: rid() + rid(), kind: t.len === "kurz" ? "kurz" : (t.len === "hoeren" || t.len === "lesen") ? t.len : "probe", len:t.len, matId:t.matId, textId:t.textId || null, minutes: Math.round((Date.now() - t.start)/60000), subject:t.subject, topic:t.label, area:t.area, createdAt:Date.now(), points, max, percent, grade:gradeOf(percent), note, items};
+  if (run !== gradeRun) return;
+  clearInterval(gradeTimer);
   S.last = r; S.saveErr = ""; S.view = "result"; render();
   saveResult(r);
 }
@@ -1270,7 +1300,7 @@ async function createLit(kind){
   S.litBusy = true; S.litErr = ""; render();
   try{
     await refreshIfNeeded();
-    const out = await askAI([{text: litPrompt(kind, theme, art)}], 0.9);
+    const out = await askAI([{text: litPrompt(kind, theme, art)}], 0.9, 180000);
     const text = String((out && out.text) || "").trim();
     const questions = (Array.isArray(out && out.questions) ? out.questions : []).map(cleanQ).filter(Boolean);
     if (text.split(/\s+/).length < (kind === "hoeren" ? 500 : 250) || questions.length < 6) throw {code:"json"};
@@ -1525,14 +1555,15 @@ async function act(b){
     case "jump": t.idx = Number(b.dataset.i); t.confirm = false; render(); break;
     case "prev": t.idx--; t.confirm = false; render(); break;
     case "next": t.idx++; t.confirm = false; render(); break;
-    case "submit": if (t.answers.some(isEmpty)){ t.confirm = true; render(); } else { await refreshIfNeeded(); grade(false); } break;
-    case "submit-force": await refreshIfNeeded(); grade(false); break;
+    case "submit": if (t.answers.some(isEmpty)){ t.confirm = true; render(); } else { refreshIfNeeded(); grade(false); } break;
+    case "submit-force": refreshIfNeeded(); grade(false); break;
     case "confirm-no": { const i = t.answers.findIndex(isEmpty); t.confirm = false; if (i >= 0) t.idx = i; render(); break; }
     case "abort": t.abort = true; render(); break;
     case "abort-no": t.abort = false; render(); break;
     case "abort-yes": S.test = null; go(S.plan && S.plan.area && S.plan.area !== "__alle__" ? "area" : "topics"); break;
     case "regrade": grade(false); break;
     case "grade-without": grade(true); break;
+    case "grade-cancel": gradeRun++; try{ aiAbort && aiAbort.abort(); }catch(e){} clearInterval(gradeTimer); S.gradeErr = "Die Korrektur wurde abgebrochen. Deine Antworten sind noch da."; go("gradeErr"); break;
     case "retry-save": await refreshIfNeeded(); saveResult(S.last); break;
     case "pin": { const k = b.dataset.k; S.pinBad = false;
       if (k === "⌫") S.pinIn = S.pinIn.slice(0,-1); else if (S.pinIn.length < 4) S.pinIn += k;
@@ -1593,8 +1624,8 @@ async function act(b){
     case "hear-quit": stopSpeak(); keepAwake(false); S.test = null; go("lit"); break;
     case "read-quit": S.test = null; go("lit"); break;
     case "lmc": { const qi = Number(b.dataset.q); S.test.answers[qi] = Number(b.dataset.i); S.test.confirm = false; render(); break; }
-    case "lit-submit": if (S.test.answers.some(isEmpty)){ S.test.confirm = true; render(); } else { stopSpeak(); keepAwake(false); await refreshIfNeeded(); grade(false); } break;
-    case "lit-submit-force": stopSpeak(); keepAwake(false); await refreshIfNeeded(); grade(false); break;
+    case "lit-submit": if (S.test.answers.some(isEmpty)){ S.test.confirm = true; render(); } else { stopSpeak(); keepAwake(false); refreshIfNeeded(); grade(false); } break;
+    case "lit-submit-force": stopSpeak(); keepAwake(false); refreshIfNeeded(); grade(false); break;
     case "confirm-no-lit": S.test.confirm = false; render(); break;
     case "vocab": S.subject = "Englisch"; S.vMsg = ""; go("vocab"); break;
     case "v-home": go("vocab"); break;
@@ -1628,7 +1659,7 @@ async function act(b){
     case "load-models": { const p = b.dataset.p; try{ S.models[p] = (await listModels(p, aiCfg().keys[p])).all; S.aiMsg = ""; }catch(e){ S.aiMsg = "Modelle konnten nicht geladen werden. Prüfe den Schlüssel."; } render(); break; }
     case "save-key": await refreshIfNeeded(); saveKey(b.dataset.p); break;
     case "ai-test": S.aiTesting = true; S.aiMsg = ""; render();
-      try{ const r = await askAI([{text:'Antworte nur mit diesem JSON: {"ok":true}'}], 0); S.aiMsg = r && r.ok ? `Verbindung klappt. ${provName()} antwortet (Modell ${aiCfg().models[aiCfg().provider]}).` : `${provName()} antwortet, aber unerwartet.`; }
+      try{ const r = await askAI([{text:'Antworte nur mit diesem JSON: {"ok":true}'}], 0, 30000); S.aiMsg = r && r.ok ? `Verbindung klappt. ${provName()} antwortet (Modell ${aiCfg().models[aiCfg().provider]}).` : `${provName()} antwortet, aber unerwartet.`; }
       catch(e){ S.aiMsg = aiErr(e); }
       S.aiTesting = false; render(); break;
     case "aikey-p": S.aikeyP = b.dataset.p; S.keyErr = ""; render(); break;
