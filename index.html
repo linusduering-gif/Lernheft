@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1c2f6e">
 <title>Mein Lernheft</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lernheft">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Caveat:wght@600;700&family=Playpen+Sans:wght@500;700;800&display=swap">
@@ -165,6 +172,18 @@ textarea.free{width:100%;min-height:120px;border:1px solid var(--line);border-ra
 .pick .grow{flex:1;min-width:0}
 .pick .name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 a{color:var(--c-mathe)}
+.sheetrow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.sheetrow .chk{flex:1 1 240px}
+.sheetrow .btn{align-self:center}
+.tbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.teil{font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.verdict{font-family:var(--f-display);font-size:1.5rem;font-weight:800}
+.chk{display:flex;gap:12px;align-items:center;border:2px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);cursor:pointer;min-width:0}
+.chk.on{border-color:var(--ink);background:var(--tint)}
+.chk input{width:22px;height:22px;flex:none;accent-color:var(--ink)}
+.chk .grow{flex:1;min-width:0}
+.src{font-size:.82rem;color:var(--ink-soft);display:flex;gap:6px;align-items:baseline}
+.src::before{content:"";flex:none;width:9px;height:11px;border-radius:1px 3px 3px 1px;background:currentColor;opacity:.55;transform:translateY(1px)}
 .prep{border-radius:var(--r);background:var(--ink);color:var(--paper);padding:20px;display:flex;flex-direction:column;gap:14px}
 .prep h2{color:var(--paper)}
 .prep .muted{color:var(--paper);opacity:.75}
@@ -189,6 +208,13 @@ a{color:var(--c-mathe)}
 "use strict";
 const SCOPES = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
 const GEM = "https://generativelanguage.googleapis.com/v1beta/";
+const LENGTHS = {
+  kurz:   {n:8,  min:10, name:"Kurzprobe",    mix:{mc:3, gap:2, short:2, free:1}},
+  normal: {n:15, min:30, name:"Probe normal", mix:{mc:4, gap:4, short:4, free:3}},
+  lang:   {n:20, min:45, name:"Probe lang",   mix:{mc:5, gap:5, short:5, free:5}}
+};
+const POINTS = {mc:1, gap:1, short:2, free:3};
+const PARTS = {mc:["A","Wissen"], gap:["A","Wissen"], short:["B","Anwenden"], free:["C","Begründen und erklären"]};
 const TEST_SIZE = 8, MAX_FILES = 10, MAX_BYTES = 15 * 1024 * 1024, MAX_RESULTS = 300;
 const SUBJECTS = [
   {key:"Mathematik", short:"Mathe", c:"--c-mathe"},
@@ -224,7 +250,7 @@ function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ r
 function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 const cfg = lsGet("lernheft.cfg") || {clientId:""};
 
-const EMPTY = () => ({version:1, settings:{}, ai:{}, materials:[], results:[], processed:[], preps:[], imports:[]});
+const EMPTY = () => ({version:1, settings:{}, ai:{}, materials:[], results:[], processed:[], preps:[], imports:[], vocab:[], texts:[]});
 const S = {
   view: cfg.clientId ? "signin" : "setup", busyMsg:"", err:"",
   D: EMPTY(), ids:{}, signedIn:false,
@@ -339,12 +365,13 @@ function httpErr(status, m){
   if (status === 404 || /model.*(not found|does not exist)|not_found/i.test(m)) return {code:"model", message:m};
   if (status === 401 || status === 403 || /api key|x-api-key|authentication|permission/i.test(m)) return {code:"key", message:m};
   if (status === 413 || /too large|too long|exceed|size/i.test(m)) return {code:"big", message:m};
-  return {code:"ai", message:m};
+  if (status === 500 || status === 502 || status === 503 || status === 504 || status === 529 || /overload|unavailable|try again/i.test(m)) return {code:"busy", message:m, status};
+  return {code:"ai", message:m, status};
 }
 async function post(url, headers, body){
   let r;
   try{ r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json", ...headers}, body: JSON.stringify(body)}); }
-  catch(e){ throw {code:"net"}; }
+  catch(e){ throw {code:"net", message: String((e && e.message) || e)}; }
   if (!r.ok){ let m = ""; try{ const j = await r.json(); m = (j.error && (j.error.message || j.error.type)) || ""; }catch(e){} throw httpErr(r.status, m); }
   return r.json();
 }
@@ -378,9 +405,17 @@ async function callOpenAI(parts, key, model){
 async function askAI(parts, temperature = 0.6){
   const a = aiCfg(), p = a.provider, key = a.keys[p], model = a.models[p];
   if (!key || !model) throw {code:"key"};
-  const text = await ({gemini:callGemini, claude:callClaude, openai:callOpenAI}[p])(parts, key, model, temperature);
+  const call = () => ({gemini:callGemini, claude:callClaude, openai:callOpenAI}[p])(parts, key, model, temperature);
+  let text;
+  try{ text = await call(); }
+  catch(e){
+    if (!e || !["busy","net","ai"].includes(e.code)) throw e;
+    await new Promise(r => setTimeout(r, 2500));
+    text = await call();
+  }
   if (!text) throw {code:"blocked"};
-  return parseJson(text);
+  try{ return parseJson(text); }
+  catch(e){ const again = await call(); return parseJson(again || ""); }
 }
 function aiErr(e){
   const c = e && e.code, n = provName(), free = aiCfg().provider === "gemini";
@@ -392,7 +427,10 @@ function aiErr(e){
   if (c === "blocked") return `${n} hat keine Antwort geliefert. Bitte prüfe, ob das Material Schulstoff ist, und versuche es nochmal.`;
   if (c === "material") return e.message;
   if (c === "auth" || c === "drive") return driveErr(e);
-  return `Keine Verbindung zu ${n}. Bitte prüfe das Internet und versuche es nochmal.`;
+  if (c === "busy") return `${n} ist gerade überlastet. Warte eine Minute und versuche es dann nochmal.`;
+  const det = [e && e.status ? "Fehler " + e.status : "", e && e.message ? String(e.message).slice(0, 200) : ""].filter(Boolean).join(": ");
+  if (c === "net") return `Das Lernheft erreicht ${n} nicht. Häufige Ursachen: ein Werbeblocker oder Inhaltsfilter im Browser, Jugendschutz-Einstellungen oder ein Schul-/Firmen-WLAN, das den Dienst sperrt.` + (det ? ` (Technisch: ${det})` : "");
+  return `${n} hat einen Fehler gemeldet.` + (det ? ` (Technisch: ${det})` : "") + " Bitte versuche es nochmal.";
 }
 async function getJson(url, headers){
   let r; try{ r = await fetch(url, {headers}); }catch(e){ throw {code:"net"}; }
@@ -421,34 +459,47 @@ async function listModels(p, key){
 
 /* ---------- Daten-Helfer ---------- */
 const D = () => S.D;
+function areaOf(m){
+  if (m.area && String(m.area).trim()) return String(m.area).trim();
+  const t = String(m.topic || "Sonstiges");
+  return t.includes(":") ? t.split(":")[0].trim() : t;
+}
 function catalog(){
   const map = new Map();
   for (const m of D().materials){
-    const n = (m.questions||[]).length; if (!n) continue;
+    if (!(m.questions||[]).length) continue;
     if (!map.has(m.subject)) map.set(m.subject, new Map());
-    const t = map.get(m.subject); t.set(m.topic, (t.get(m.topic)||0) + n);
+    const a = map.get(m.subject), k = areaOf(m);
+    if (!a.has(k)) a.set(k, []);
+    a.get(k).push(m);
   }
-  return SUBJECTS.filter(s => map.has(s.key)).map(s => ({key:s.key, topics:[...map.get(s.key)].map(([topic,n]) => ({topic,n})).sort((a,b)=>a.topic.localeCompare(b.topic,"de"))}));
+  return SUBJECTS.filter(s => map.has(s.key)).map(s => ({key:s.key, areas:[...map.get(s.key)].map(([area, mats]) => ({area, mats: mats.sort((x,y) => lessonDay(y).localeCompare(lessonDay(x))), n: mats.reduce((a,m) => a + m.questions.length, 0)})).sort((a,b) => a.area.localeCompare(b.area,"de"))}));
 }
-const lastFor = (subject, topic) => D().results.find(r => r.subject === subject && (topic == null || r.topic === topic));
+const lastKurz = id => D().results.find(r => r.kind === "kurz" && r.matId === id);
+const verdictOf = p => p >= 85 ? ["Blatt verstanden!", "ok"] : p >= 60 ? ["Fast verstanden", "half"] : ["Nochmal üben", "no"];
+function topicArea(subject, topic){ const m = D().materials.find(x => x.subject === subject && x.topic === topic); return m ? areaOf(m) : null; }
+const lastFor = (subject, area) => D().results.find(r => r.kind !== "kurz" && r.subject === subject && (area == null || r.area === area || (!r.area && topicArea(subject, r.topic) === area)));
 const gradeOf = p => p>=92?1:p>=81?2:p>=67?3:p>=50?4:p>=30?5:6;
 const COMMENTS = {1:"Super gemacht!",2:"Sehr gut geübt!",3:"Gut! Ein paar Sachen üben wir noch.",4:"Weiter üben, du schaffst das!",5:"Nicht aufgeben, wir üben das nochmal.",6:"Nicht aufgeben, wir üben das nochmal."};
 function pickWeighted(arr){ const tot = arr.reduce((s,x)=>s+x.w,0); let r = Math.random()*tot; for (let i=0;i<arr.length;i++){ r -= arr[i].w; if (r<=0) return i; } return arr.length-1; }
-function buildTest(subject, topic){
+function buildTest(subject, matIds, len = "normal"){
+  const L = LENGTHS[len] || LENGTHS.normal;
   const pool = [];
   for (const m of D().materials){
-    if (m.subject !== subject || (topic && m.topic !== topic)) continue;
-    for (const q of (m.questions||[])) pool.push({...q, key:m.id+":"+q.id});
+    if (m.subject !== subject || (matIds && !matIds.includes(m.id))) continue;
+    for (const q of (m.questions||[])) pool.push({...q, key:m.id+":"+q.id, src: srcLabel(m)});
   }
   const last = {};
   const hist = [...D().results, ...(D().preps||[])].sort((a,b) => b.createdAt - a.createdAt);
   for (const r of hist) for (const it of (r.items||[])) if (it.key && !(it.key in last) && it.points != null) last[it.key] = it.max ? it.points/it.max : 0;
   for (const q of pool){ const l = last[q.key]; q.w = l == null ? 2 : l < .5 ? 4 : l < 1 ? 2.5 : .7; }
   const chosen = [];
-  for (const t of TYPE_ORDER){ const c = pool.filter(q => q.type === t); if (c.length && chosen.length < TEST_SIZE){ const q = c[pickWeighted(c)]; chosen.push(q); pool.splice(pool.indexOf(q),1); } }
-  while (chosen.length < TEST_SIZE && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); }
+  for (const t of TYPE_ORDER){
+    for (let k = 0; k < L.mix[t]; k++){ const c = pool.filter(q => q.type === t); if (!c.length) break; const q = c[pickWeighted(c)]; chosen.push(q); pool.splice(pool.indexOf(q),1); }
+  }
+  while (chosen.length < L.n && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); }
   chosen.sort((a,b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
-  return chosen.map(q => ({...q, points: q.type === "free" ? 2 : 1}));
+  return chosen.map(q => ({...q, points: POINTS[q.type] || 1}));
 }
 function norm(s, strict){
   s = String(s ?? "").trim().replace(/\s+/g," ");
@@ -468,6 +519,11 @@ const isoDay = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")
 const fromIso = s => { const [y,m,d] = String(s).split("-").map(Number); return new Date(y, m-1, d); };
 function nextSchoolDay(){ const d = new Date(); d.setHours(12,0,0,0); do d.setDate(d.getDate()+1); while (d.getDay() === 0 || d.getDay() === 6); return d; }
 const lessonDay = m => m.lessonDate || isoDay(new Date(m.createdAt));
+function srcLabel(m){
+  const t = m.title || m.topic || "Material";
+  if (/^Grundwissen/i.test(t) || m.source === "Grundwissen") return t;
+  return `„${t}“ vom ${fmtDate(fromIso(lessonDay(m)))}`;
+}
 function subjectsWithMaterial(){ return new Set(D().materials.filter(m => (m.questions||[]).some(q => q.type !== "free")).map(m => m.subject)); }
 function timetableFor(day){ const tt = (D().settings.timetable || {})[day.getDay()]; return Array.isArray(tt) ? tt : []; }
 function latestLesson(subject){
@@ -497,7 +553,7 @@ function buildPrep(subjects, target){
     const L = latestLesson(sj); if (!L) continue;
     const pts = []; for (const m of L.latest){ for (const p of (m.keyPoints && m.keyPoints.length ? m.keyPoints : [m.summary])) if (p && !pts.includes(p)) pts.push(p); }
     steps.push({kind:"recap", subject:sj, day:L.day, topics:[...new Set(L.latest.map(m => m.topic))], points: pts.slice(0,5)});
-    const mk = ms => ms.flatMap(m => (m.questions||[]).filter(q => q.type !== "free").map(q => ({...q, key:m.id+":"+q.id, w: last[m.id+":"+q.id] == null ? 2 : last[m.id+":"+q.id] < 1 ? 3 : .8})));
+    const mk = ms => ms.flatMap(m => (m.questions||[]).filter(q => q.type !== "free").map(q => ({...q, key:m.id+":"+q.id, src: srcLabel(m), w: last[m.id+":"+q.id] == null ? 2 : last[m.id+":"+q.id] < 1 ? 3 : .8})));
     let pool = mk(L.latest); const chosen = [];
     while (chosen.length < per && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); }
     if (chosen.length < per){ pool = mk(L.older); while (chosen.length < per && pool.length){ const i = pickWeighted(pool); chosen.push(pool[i]); pool.splice(i,1); } }
@@ -510,15 +566,16 @@ function buildPrep(subjects, target){
 /* ---------- Ansichten ---------- */
 function header(){
   const parent = S.view === "parent" || S.view === "gate";
-  const kidNav = ["home","topics","intro","result","gradeErr"].includes(S.view);
+  const kidNav = ["home","topics","area","intro","result","gradeErr","lit","vocab"].includes(S.view);
   return `<header class="top">
     <button type="button" class="brand" data-act="home"><span class="brand-mark" aria-hidden="true"></span>Mein Lernheft</button>
     ${parent ? `<button type="button" class="btn sm" data-act="home">Zum Kinderbereich</button>` : kidNav ? `<button type="button" class="btn sm" data-act="parent">Eltern</button>` : ""}
   </header>`;
 }
 function render(){
-  const v = {setup, signin, loading, aikey, home, topics, intro, quiz, prep:prepView, grading, gradeErr:gradeErrView, result, gate, parent}[S.view] || home;
+  const v = {setup, signin, loading, aikey, home, topics, area:areaView, intro, quiz, prep:prepView, grading, gradeErr:gradeErrView, result, gate, parent, lit:litView, hear:hearView, readp:readView, vocab:vocabHome, vtrain:vTrain}[S.view] || home;
   $app.innerHTML = header() + v();
+  if (S.view === "vtrain"){ const a = document.getElementById("vin"); if (a && !a.disabled) a.focus({preventScroll:true}); }
   if (S.view === "quiz" || S.view === "prep"){ const a = document.getElementById("ans"); if (a && a.tagName === "INPUT" && !a.disabled) a.focus({preventScroll:true}); }
 }
 function go(view){ S.view = view; render(); window.scrollTo(0,0); }
@@ -574,9 +631,9 @@ function home(){
   let h = `<section class="card"><h1>Hallo${name ? " " + esc(name) : ""}!</h1><p class="muted">Welches Fach möchtest du heute üben?</p></section>`;
   if (cat.length) h += prepCard();
   if (!cat.length) return h + `<section class="card"><h2>Dein Lernheft ist noch leer</h2><p>Sobald deine Eltern Arbeitsblätter oder Buchseiten hochladen, erscheinen hier deine Fächer.</p><div class="row"><button type="button" class="btn primary" data-act="parent">Zum Elternbereich</button></div></section>`;
-  h += `<section class="hefte">` + cat.map(s => `<button type="button" class="heft" style="--c:${col(s.key)}" data-act="subject" data-s="${esc(s.key)}"><span class="heft-label"><small>Fach</small><b>${esc(subj(s.key).short)}</b><span>${s.topics.length} ${s.topics.length === 1 ? "Thema" : "Themen"}</span></span></button>`).join("") + `</section>`;
+  h += `<section class="hefte">` + cat.map(s => `<button type="button" class="heft" style="--c:${col(s.key)}" data-act="subject" data-s="${esc(s.key)}"><span class="heft-label"><small>Fach</small><b>${esc(subj(s.key).short)}</b><span>${s.areas.length} ${s.areas.length === 1 ? "Themenbereich" : "Themenbereiche"}</span></span></button>`).join("") + `</section>`;
   const recent = D().results.slice(0,4);
-  if (recent.length) h += `<section class="card"><h2>Deine letzten Schulaufgaben</h2><div class="list">` + recent.map(r => `<div class="item"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten</div></div><span class="mini-stamp">${r.grade}</span></div>`).join("") + `</div></section>`;
+  if (recent.length) h += `<section class="card"><h2>Deine letzten Proben</h2><div class="list">` + recent.map(r => `<div class="item"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${r.kind === "kurz" ? "Kurzprobe · " : ""}${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten</div></div>${r.kind === "kurz" ? `<span class="mark ${verdictOf(r.percent)[1]}">${r.percent >= 85 ? "✓" : r.percent >= 60 ? "½" : "✗"}</span>` : `<span class="mini-stamp">${r.grade}</span>`}</div>`).join("") + `</div></section>`;
   return h;
 }
 function prepCard(){
@@ -612,6 +669,7 @@ function prepView(){
   const q = s.q, a = P.answers[P.idx], ch = P.checked[P.idx];
   const fb = ch == null ? "" : ch ? `<div class="fbok"><p><b>Richtig!</b> ${esc(q.explanation || "")}</p></div>` : `<div class="fbno"><p><b>Fast!</b> Richtig ist: <b>${esc(qAnswer(q))}</b></p>${q.explanation ? `<p class="small" style="margin-top:6px">${esc(q.explanation)}</p>` : ""}</div>`;
   return head + `<section class="card"><div class="row muted small"><span class="chip" style="--c:${col(s.subject)}">${esc(subj(s.subject).short)}</span>${esc(TYPES[q.type])}</div>
+    ${q.src ? `<p class="src">Quelle: ${esc(q.src)}</p>` : ""}
     ${q.type === "gap" ? `<p class="muted">${esc(q.prompt || "Setze das fehlende Wort ein.")}</p>` : `<p class="qtext">${esc(q.prompt)}</p>`}
     ${inputFor(q, a, "pmc", ch != null)}
     ${fb}
@@ -637,19 +695,48 @@ async function prepSave(){
 function topics(){
   const s = catalog().find(x => x.key === S.subject);
   if (!s){ S.view = "home"; return home(); }
-  let h = `<section class="subjhead" style="--c:${col(s.key)}"><p class="small">Fach</p><h1>${esc(s.key)}</h1></section><section class="card"><h2>Welches Thema?</h2><div class="list">`;
-  if (s.topics.length > 1) h += `<button type="button" class="item" data-act="topic" data-t=""><div class="grow"><b>Alles gemischt</b><div class="muted small">Fragen aus allen Themen</div></div><span aria-hidden="true">›</span></button>`;
-  for (const t of s.topics){ const l = lastFor(s.key, t.topic);
-    h += `<button type="button" class="item" data-act="topic" data-t="${esc(t.topic)}"><div class="grow"><b>${esc(t.topic)}</b><div class="muted small">${t.n} Fragen${l ? " · zuletzt am " + fmtDate(l.createdAt) : " · noch nicht geübt"}</div></div>${l ? `<span class="mini-stamp">${l.grade}</span>` : `<span aria-hidden="true">›</span>`}</button>`; }
-  return h + `</div><div class="row"><button type="button" class="btn ghost" data-act="home">‹ Andere Fächer</button></div></section>`;
+  const all = s.areas.flatMap(a => a.mats), lAll = lastFor(s.key, "__alle__");
+  let h = `<section class="subjhead" style="--c:${col(s.key)}"><p class="small">Fach</p><h1>${esc(s.key)}</h1></section>
+    <section class="card"><h2>Welcher Themenbereich?</h2><div class="list">`;
+  for (const a of s.areas){ const l = lastFor(s.key, a.area);
+    h += `<button type="button" class="item" data-act="area" data-a="${esc(a.area)}"><div class="grow"><b>${esc(a.area)}</b><div class="muted small">${a.mats.length} ${a.mats.length === 1 ? "Arbeitsblatt" : "Arbeitsblätter"} · ${a.n} Fragen${l ? " · zuletzt am " + fmtDate(l.createdAt) : " · noch nicht geübt"}</div></div>${l ? `<span class="mini-stamp">${l.grade}</span>` : `<span aria-hidden="true">›</span>`}</button>`; }
+  h += `</div></section>`;
+  if (s.areas.length > 1) h += `<section class="card"><h2>Ganzes Fach</h2><p class="muted small">Eine Schulaufgabe mit Fragen aus allen ${s.areas.length} Themenbereichen (${all.length} Arbeitsblätter).</p>
+    <div class="row"><button type="button" class="btn primary" data-act="subject-all" data-len="normal">Probe normal · 15 Aufgaben · ca. 30 Min.</button><button type="button" class="btn" data-act="subject-all" data-len="lang">Probe lang · 20 Aufgaben · ca. 45 Min.</button></div>${lAll ? `<p class="small muted">Zuletzt Note ${lAll.grade} am ${fmtDate(lAll.createdAt)}</p>` : ""}</section>`;
+  if (s.key === "Deutsch") h += `<section class="card"><h2>Hören und Lesen</h2><div class="list">
+      <button type="button" class="item" data-act="lit" data-k="hoeren"><div class="grow"><b>Hörprobe</b><div class="muted small">Eine Geschichte (ca. 8 Min.) wird zweimal vorgelesen, dann beantwortest du Fragen.</div></div><span aria-hidden="true">›</span></button>
+      <button type="button" class="item" data-act="lit" data-k="lesen"><div class="grow"><b>Leseprobe</b><div class="muted small">Text lesen und Fragen zum Leseverständnis beantworten.</div></div><span aria-hidden="true">›</span></button></div></section>`;
+  if (s.key === "Englisch"){ const due = vocabList().filter(vDue).length;
+    h += `<section class="card"><h2>Vokabeltrainer</h2><div class="list"><button type="button" class="item" data-act="vocab"><div class="grow"><b>Vokabeln üben</b><div class="muted small">${vocabList().length} Vokabeln · ${due} heute fällig</div></div><span aria-hidden="true">›</span></button></div></section>`; }
+  return h + `<div class="row"><button type="button" class="btn ghost" data-act="home">‹ Andere Fächer</button></div>`;
+}
+const sheetName = m => m.topic.includes(":") && !m.area ? m.topic.split(":").slice(1).join(":").trim() : m.topic;
+function areaView(){
+  const s = catalog().find(x => x.key === S.subject), a = s && s.areas.find(x => x.area === S.area);
+  if (!a){ S.view = "topics"; return topics(); }
+  if (!S.selMats) S.selMats = a.mats.map(m => m.id);
+  const sel = S.selMats, nq = a.mats.filter(m => sel.includes(m.id)).reduce((x,m) => x + m.questions.length, 0);
+  return `<section class="subjhead" style="--c:${col(s.key)}"><p class="small">${esc(subj(s.key).short)} · Themenbereich</p><h1>${esc(a.area)}</h1></section>
+    <section class="card"><h2>Welche Arbeitsblätter sollen dran kommen?</h2><p class="muted small">Tippe ein Blatt an, um es ab- oder wieder anzuwählen.</p>
+    <div class="row"><button type="button" class="btn ghost sm" data-act="mats-all">Alle auswählen</button><button type="button" class="btn ghost sm" data-act="mats-none">Alle abwählen</button></div>
+    <div class="list">${a.mats.map(m => { const on = sel.includes(m.id), lk = lastKurz(m.id);
+      return `<div class="sheetrow"><label class="chk ${on ? "on" : ""}"><input type="checkbox" data-mat="${esc(m.id)}" ${on ? "checked" : ""}><span class="grow"><b>${esc(sheetName(m))}</b><span class="muted small" style="display:block">${esc(m.title || "")}${/^Grundwissen/i.test(m.title || "") ? "" : " · " + fmtDate(fromIso(lessonDay(m)))} · ${m.questions.length} Fragen${lk ? " · Kurzprobe: " + verdictOf(lk.percent)[0] : ""}</span></span></label>
+        <button type="button" class="btn sm" data-act="sheet-kurz" data-m="${esc(m.id)}" title="Lernkontrolle zu diesem Blatt">Kurzprobe</button></div>`; }).join("")}</div>
+    <p class="muted small">Die <b>Kurzprobe</b> prüft mit 8 Aufgaben, ob ein einzelnes Blatt verstanden wurde, ohne Note.</p></section>
+    <section class="card"><h2>Probe zum Themenbereich</h2><p class="muted small">${sel.length === a.mats.length ? "Alle Blätter des Themenbereichs" : `${sel.length} von ${a.mats.length} Blättern ausgewählt`} · ${nq} Fragen zur Auswahl</p>
+    <div class="row"><button type="button" class="btn primary" data-act="area-start" data-len="normal" ${sel.length ? "" : "disabled"}>Probe normal · 15 Aufgaben · ca. 30 Min.</button><button type="button" class="btn" data-act="area-start" data-len="lang" ${sel.length ? "" : "disabled"}>Probe lang · 20 Aufgaben · ca. 45 Min.</button></div></section>
+    <div class="row"><button type="button" class="btn ghost" data-act="back-topics">‹ Andere Themenbereiche</button></div>`;
 }
 function intro(){
-  const qs = buildTest(S.subject, S.topic), pts = qs.reduce((a,q)=>a+q.points,0);
-  return `<section class="card"><h1>Schulaufgabe</h1>
-    <div class="probe-head"><div><small>Name</small><b>${esc(D().settings.childName || "") || "&nbsp;"}</b></div><div><small>Datum</small><b>${fmtDate(Date.now())}</b></div><div><small>Fach</small><b>${esc(subj(S.subject).short)}</b></div><div><small>Thema</small><b>${esc(S.topic || "Alles gemischt")}</b></div></div>
-    <p>${qs.length} Aufgaben · ${pts} Punkte. Lies jede Aufgabe genau. Mit den Kreisen oben kannst du zwischen den Aufgaben springen.</p>
-    ${qs.length < TEST_SIZE ? `<p class="notice small">Zu diesem Thema gibt es erst ${qs.length} Fragen. Mit mehr Material werden die Schulaufgaben länger.</p>` : ""}
-    <div class="row"><button type="button" class="btn primary" data-act="start">Los geht's</button><button type="button" class="btn ghost" data-act="back-topics">Anderes Thema</button></div></section>`;
+  const T = S.plan, L = LENGTHS[T.len] || LENGTHS.normal, qs = buildTest(S.subject, T.mats, T.len), pts = qs.reduce((a,q)=>a+q.points,0);
+  const kurz = T.len === "kurz";
+  const parts = [...new Set(qs.map(q => PARTS[q.type][0]))].map(p => ({A:"Teil A: Wissen", B:"Teil B: Anwenden", C:"Teil C: Begründen und erklären"}[p]));
+  return `<section class="card"><h1>${kurz ? "Kurzprobe" : "Probe"}</h1>
+    <div class="probe-head"><div><small>Name</small><b>${esc(D().settings.childName || "") || "&nbsp;"}</b></div><div><small>Datum</small><b>${fmtDate(Date.now())}</b></div><div><small>Fach</small><b>${esc(subj(S.subject).short)}</b></div><div><small>${kurz ? "Arbeitsblatt" : "Thema"}</small><b>${esc(T.label)}</b></div></div>
+    <p>${qs.length} Aufgaben · ${pts} Punkte · Zeit: etwa ${L.min} Minuten.</p>
+    ${kurz ? `<p class="muted">Die Kurzprobe ist eine Lernkontrolle: Du siehst danach, ob du das Blatt verstanden hast. Es gibt keine Note.</p>` : `<p class="muted">Die Aufgaben werden schwieriger: ${parts.join(", ")}. Lies jede Aufgabe genau. Mit den Kreisen oben kannst du springen.</p>`}
+    ${qs.length < L.n ? `<p class="notice small">Für diese Auswahl gibt es nur ${qs.length} Fragen. Mit mehr Arbeitsblättern wird die Probe länger.</p>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="start">Los geht's</button><button type="button" class="btn ghost" data-act="${T.area && T.area !== "__alle__" ? "back-area" : "back-topics"}">Zurück</button></div></section>`;
 }
 function inputFor(q, a, mcAct, locked){
   const dis = locked ? "disabled" : "";
@@ -662,9 +749,11 @@ function quiz(){
   const t = S.test, q = t.qs[t.idx], n = t.qs.length, a = t.answers[t.idx];
   const input = inputFor(q, a, "mc", false);
   const open = t.answers.filter(isEmpty).length;
-  return `<section class="card"><div class="row muted small"><span class="chip" style="--c:${col(t.subject)}">${esc(subj(t.subject).short)}</span>${esc(t.topic || "Alles gemischt")}</div>
+  const L = LENGTHS[t.len] || LENGTHS.normal, el = Math.floor((Date.now() - t.start) / 60000), P = PARTS[q.type];
+  return `<section class="card"><div class="tbar"><div class="row muted small"><span class="chip" style="--c:${col(t.subject)}">${esc(subj(t.subject).short)}</span>${t.len === "kurz" ? "Kurzprobe · " : ""}${esc(t.label)}</div><span class="small ${el > L.min ? "err" : "muted"}" id="quizClock" style="${el > L.min ? "padding:2px 8px" : ""}">${el} von ${L.min} Min.</span></div>
     <div class="dots">${t.qs.map((_,i) => `<button type="button" class="dot ${i===t.idx?"cur":""} ${!isEmpty(t.answers[i])?"done":""}" data-act="jump" data-i="${i}" aria-label="Aufgabe ${i+1}">${i+1}</button>`).join("")}</div></section>
-  <section class="card"><div class="aufg"><span class="anr">Aufgabe ${t.idx+1}</span><span class="pts">${q.points} P.</span></div>
+  <section class="card">${t.len !== "kurz" ? `<span class="teil">Teil ${P[0]} · ${P[1]}</span>` : ""}<div class="aufg"><span class="anr">Aufgabe ${t.idx+1}</span><span class="pts">${q.points} P.</span></div>
+    ${q.src ? `<p class="src">Quelle: ${esc(q.src)}</p>` : ""}
     ${q.type === "gap" ? `<p class="muted">${esc(q.prompt || "Setze das fehlende Wort ein.")}</p>` : `<p class="qtext">${esc(q.prompt)}</p>`}
     ${input}
     ${t.confirm ? `<div class="notice"><p><b>${open} ${open===1?"Aufgabe ist":"Aufgaben sind"} noch leer.</b> Möchtest du trotzdem abgeben?</p><div class="row" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="submit-force">Trotzdem abgeben</button><button type="button" class="btn sm" data-act="confirm-no">Weiter arbeiten</button></div></div>` : ""}
@@ -677,18 +766,20 @@ function corrList(items){
   return items.map((it,i) => {
     const mk = it.points == null ? `<span class="mark half">–</span>` : it.points >= it.max ? `<span class="mark ok">✓</span>` : it.points > 0 ? `<span class="mark half">½</span>` : `<span class="mark no">✗</span>`;
     return `<div class="corr">${mk}<div class="field"><div class="row" style="justify-content:space-between"><b>Aufgabe ${i+1}</b><span class="pts">${it.points == null ? "nicht bewertet" : fmtP(it.points) + " / " + it.max + " P."}</span></div>
-      <p>${esc(it.prompt)}</p><p class="given">${it.given ? esc(it.given) : `<span class="muted">(keine Antwort)</span>`}</p>
+      <p>${esc(it.prompt)}</p>${it.src ? `<p class="src">Quelle: ${esc(it.src)}</p>` : ""}<p class="given">${it.given ? esc(it.given) : `<span class="muted">(keine Antwort)</span>`}</p>
       ${it.points == null || it.points < it.max ? `<p class="small"><b>Richtig wäre:</b> ${esc(it.expected)}</p>` : ""}
       ${it.feedback ? `<p class="fb">${esc(it.feedback)}</p>` : it.explanation ? `<p class="muted small">${esc(it.explanation)}</p>` : ""}</div></div>`;
   }).join("");
 }
 function result(){
   const r = S.last;
-  return `<section class="card"><div class="result-top"><div class="stamp"><small>Note</small><b>${r.grade}</b></div>
-      <div class="field"><p class="comment">${esc(COMMENTS[r.grade])}</p><p><b>${fmtP(r.points)} von ${fmtP(r.max)} Punkten</b> (${r.percent} %)</p><p class="muted small">${esc(subj(r.subject).short)} · ${esc(r.topic)}</p></div></div>
+  const v = verdictOf(r.percent);
+  return `<section class="card"><div class="result-top">${r.kind === "kurz" ? `<span class="mark ${v[1]}" style="font-size:4rem">${v[1] === "ok" ? "✓" : v[1] === "half" ? "½" : "✗"}</span>` : `<div class="stamp"><small>Note</small><b>${r.grade}</b></div>`}
+      <div class="field">${r.kind === "kurz" ? `<p class="verdict">${v[0]}</p><p class="muted small">Kurzprobe als Lernkontrolle, ohne Note</p>` : `<p class="comment">${esc(COMMENTS[r.grade])}</p>`}<p><b>${fmtP(r.points)} von ${fmtP(r.max)} Punkten</b> (${r.percent} %)</p><p class="muted small">${esc(subj(r.subject).short)} · ${esc(r.topic)}</p></div></div>
     ${r.note ? `<p class="notice small">${esc(r.note)}</p>` : ""}
     ${S.saveErr ? `<div class="err small"><p>${esc(S.saveErr)}</p><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="retry-save">Nochmal speichern</button></div></div>` : ""}
-    <div class="row"><button type="button" class="btn primary" data-act="again">Noch eine Schulaufgabe</button><button type="button" class="btn" data-act="home">Zur Startseite</button></div></section>
+    <div class="row">${r.textId ? `<button type="button" class="btn primary" data-act="lit" data-k="${r.kind}">Zu den ${r.kind === "hoeren" ? "Hörproben" : "Leseproben"}</button>` : `<button type="button" class="btn primary" data-act="again">${r.kind === "kurz" ? "Nochmal eine Kurzprobe" : "Noch eine Probe"}</button>`}<button type="button" class="btn" data-act="home">Zur Startseite</button></div></section>
+  ${r.textId && r.kind === "hoeren" ? (() => { const tx = (D().texts || []).find(x => x.id === r.textId); return tx ? `<section class="card"><details><summary><b>Den Hörtext nachlesen</b></summary><div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;line-height:1.65">${tx.text.split(/\n\s*\n|\n/).filter(x => x.trim()).map(p => `<p>${esc(p)}</p>`).join("")}</div></details></section>` : ""; })() : ""}
   <section class="card"><h2>Korrektur</h2><div>${corrList(r.items)}</div></section>`;
 }
 
@@ -700,10 +791,10 @@ function gate(){
     <div class="keys">${[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map(k => k==="" ? "<span></span>" : `<button type="button" data-act="pin" data-k="${k}">${k}</button>`).join("")}</div></section>`;
 }
 function parent(){
-  const tabs = [["add","Material hinzufügen"],["materials","Materialien"],["results","Ergebnisse"],["settings","Einstellungen"]];
+  const tabs = [["add","Material hinzufügen"],["materials","Materialien"],["vocab","Vokabeln"],["results","Ergebnisse"],["settings","Einstellungen"]];
   let h = `<section class="card"><h1>Elternbereich</h1><nav class="tabs">${tabs.map(([k,l]) => `<button type="button" class="tab ${S.ptab===k?"on":""}" data-act="ptab" data-t="${k}">${l}</button>`).join("")}</nav></section>`;
   if (!D().settings.pin && S.ptab !== "settings") h += `<p class="notice small">Tipp: Lege unter Einstellungen eine PIN fest, damit nur du in den Elternbereich kommst.</p>`;
-  return h + ({add:pAdd, materials:pMaterials, results:pResults, settings:pSettings}[S.ptab])();
+  return h + ({add:pAdd, materials:pMaterials, vocab:pVocab, results:pResults, settings:pSettings}[S.ptab])();
 }
 const folderUrl = () => `https://drive.google.com/drive/folders/${S.ids.inbox}`;
 function selCount(){ return Object.keys(S.add.sel).length + S.add.local.length; }
@@ -742,16 +833,19 @@ function pAdd(){
       : `<div class="row"><button type="button" class="btn primary" data-act="generate" ${!n || n > MAX_FILES || !grade ? "disabled" : ""}>Fragen erstellen</button>${!grade ? `<span class="muted small">Bitte zuerst die Klasse wählen.</span>` : ""}</div>`}</section>`;
   return h;
 }
+const areasOf = s => [...new Set(D().materials.filter(m => m.subject === s).map(areaOf))].sort((a,b) => a.localeCompare(b,"de"));
 const topicsOf = s => [...new Set(D().materials.filter(m => m.subject === s).map(m => m.topic))];
 function pDraft(){
   const d = S.add.draft;
   return `<section class="card"><h2>Vorschau prüfen</h2><p class="muted">${esc(d.summary)}</p>
     <div class="grid2"><div class="field"><label for="dSubject">Fach</label><select id="dSubject" class="fin">${SUBJECTS.map(s => `<option ${d.subject===s.key?"selected":""}>${esc(s.key)}</option>`).join("")}</select></div>
-      <div class="field"><label for="dTopic">Thema</label><input id="dTopic" class="fin" list="topicList" value="${esc(d.topic)}"><datalist id="topicList">${topicsOf(d.subject).map(t => `<option value="${esc(t)}">`).join("")}</datalist></div></div>
+      <div class="field"><label for="dArea">Themenbereich</label><input id="dArea" class="fin" list="areaList" value="${esc(d.area)}"><datalist id="areaList">${areasOf(d.subject).map(t => `<option value="${esc(t)}">`).join("")}</datalist></div></div>
+    <div class="field"><label for="dTopic">Thema dieses Blattes</label><input id="dTopic" class="fin" value="${esc(d.topic)}"></div>
     <div class="grid2"><div class="field"><label for="dTitle">Bezeichnung des Materials</label><input id="dTitle" class="fin" value="${esc(d.title)}"></div>
       <div class="field"><label for="dDate">Im Unterricht durchgenommen am</label><input type="date" id="dDate" class="fin" value="${esc(d.lessonDate)}"><span class="muted small">${d.dateSource === "blatt" ? "Vom Blatt abgelesen. Bitte kurz prüfen." : d.dateSource === "foto" ? "Kein Datum auf dem Blatt gefunden, daher das Datum des Fotos." : "Kein Datum gefunden, bitte anpassen."}</span></div></div>
+    ${d.vocab && d.vocab.length ? `<div class="field"><b class="small">${d.vocab.length} Vokabeln für den Vokabeltrainer</b><p class="small muted">${d.vocab.map(v => esc(v.en) + " = " + esc(v.de)).join(" · ")}</p></div>` : ""}
     ${d.keyPoints.length ? `<div class="field"><b class="small">Merksätze für die Tagesvorbereitung</b><ul class="merk small" style="font-size:.95rem">${d.keyPoints.map(p => `<li>${esc(p)}</li>`).join("")}</ul></div>` : ""}
-    <p class="small muted">Gleicher Themenname wie bei einem früheren Material = die Fragen landen im selben Thema.</p>
+    <p class="small muted">Gleicher Themenbereich wie bei früheren Blättern = dein Sohn findet sie dort gemeinsam und kann eine Schulaufgabe über den ganzen Block schreiben.</p>
     ${S.add.err ? `<p class="err">${esc(S.add.err)}</p>` : ""}
     <div class="row"><button type="button" class="btn primary" data-act="save-draft" ${d.saving?"disabled":""}>${d.saving ? "Wird gespeichert …" : d.questions.length + " Fragen speichern"}</button><button type="button" class="btn" data-act="discard-draft">Verwerfen</button></div></section>
   <section class="card"><h2>Fragen</h2><div>${d.questions.map((q,i) => `<div class="qprev"><div class="grow"><span><span class="tchip">${TYPES[q.type]}</span></span><span>${esc(qPrompt(q))}</span>${q.type==="mc" ? `<span class="small muted">${q.options.map(esc).join(" · ")}</span>` : ""}<span class="small ans">${esc(qAnswer(q))}</span></div><button type="button" class="btn ghost sm" data-act="dDel" data-i="${i}">Löschen</button></div>`).join("")}</div></section>`;
@@ -759,22 +853,54 @@ function pDraft(){
 function pMaterials(){
   const ms = D().materials;
   if (!ms.length) return `<section class="card"><h2>Noch kein Material</h2><p>Lade unter „Material hinzufügen“ das erste Arbeitsblatt hoch.</p></section>`;
-  const sorted = [...ms].sort((a,b) => SUBJECTS.findIndex(s=>s.key===a.subject) - SUBJECTS.findIndex(s=>s.key===b.subject) || a.topic.localeCompare(b.topic,"de") || b.createdAt - a.createdAt);
-  return `<section class="card"><h2>Materialien</h2>${S.matMsg ? `<p class="err small">${esc(S.matMsg)}</p>` : ""}<div class="list">` + sorted.map(m => { const open = S.openMat === m.id;
-    return `<div class="card" style="box-shadow:none;padding:14px 16px;gap:10px"><div class="row"><span class="chip" style="--c:${col(m.subject)}">${esc(subj(m.subject).short)}</span><b>${esc(m.topic)}</b></div>
+  S.areaEdit = S.areaEdit || {};
+  const sorted = [...ms].sort((a,b) => SUBJECTS.findIndex(s=>s.key===a.subject) - SUBJECTS.findIndex(s=>s.key===b.subject) || areaOf(a).localeCompare(areaOf(b),"de") || lessonDay(b).localeCompare(lessonDay(a)));
+  const noArea = ms.filter(m => !m.area).length;
+  let h = `<section class="card"><h2>Materialien</h2>
+    <p class="muted small">Die Blätter sind nach Fach und Themenbereich geordnet. Den Themenbereich kannst du bei jedem Blatt ändern.</p>
+    <div class="row"><button type="button" class="btn sm" data-act="areas-ai" ${S.areasBusy ? "disabled" : ""}>${S.areasBusy ? "KI ordnet …" : "Themenbereiche von der KI ordnen lassen"}</button>${noArea ? `<span class="small muted">${noArea} ${noArea === 1 ? "Blatt hat" : "Blätter haben"} noch keinen festen Themenbereich</span>` : ""}</div>
+    ${S.matMsg ? `<p class="${/^(Fertig|Gespeichert)/.test(S.matMsg) ? "notice" : "err"} small">${esc(S.matMsg)}</p>` : ""}</section>`;
+  let cur = "";
+  for (const m of sorted){
+    const key = m.subject + "|" + areaOf(m), open = S.openMat === m.id, editing = S.areaEdit[m.id] != null;
+    if (key !== cur){ if (cur) h += `</div></section>`; cur = key;
+      h += `<section class="card"><div class="row"><span class="chip" style="--c:${col(m.subject)}">${esc(subj(m.subject).short)}</span><h3>${esc(areaOf(m))}</h3></div><div class="list">`; }
+    h += `<div class="card" style="box-shadow:none;padding:14px 16px;gap:10px"><b>${esc(m.topic)}</b>
       <p class="muted small">${esc(m.title || "")} · ${(m.questions||[]).length} Fragen · Unterricht am ${fmtDate(fromIso(lessonDay(m)))}${m.source ? " · " + esc(m.source) : ""}</p>
+      ${editing ? `<div class="row"><input class="fin" style="max-width:260px" list="areaList_${m.id}" data-areaedit="${m.id}" id="ae_${m.id}" value="${esc(S.areaEdit[m.id])}"><datalist id="areaList_${m.id}">${areasOf(m.subject).map(t => `<option value="${esc(t)}">`).join("")}</datalist><button type="button" class="btn primary sm" data-act="area-save" data-m="${m.id}">Speichern</button><button type="button" class="btn ghost sm" data-act="area-cancel" data-m="${m.id}">Abbrechen</button></div>` : ""}
       ${S.confirmDel === m.id ? `<div class="notice"><p>Material mit allen Fragen löschen? Die Fotos im Drive-Ordner bleiben erhalten.</p><div class="row" style="margin-top:8px"><button type="button" class="btn red sm" data-act="mat-del-yes" data-m="${m.id}">Ja, löschen</button><button type="button" class="btn sm" data-act="mat-del-no">Abbrechen</button></div></div>` : ""}
-      <div class="row"><button type="button" class="btn sm" data-act="mat-open" data-m="${m.id}">${open ? "Fragen ausblenden" : "Fragen ansehen"}</button><button type="button" class="btn ghost sm" data-act="mat-del" data-m="${m.id}">Löschen</button></div>
-      ${open ? `<div>${(m.questions||[]).map(q => `<div class="qprev"><div class="grow"><span><span class="tchip">${TYPES[q.type]}</span></span><span>${esc(qPrompt(q))}</span><span class="small ans">${esc(qAnswer(q))}</span></div><button type="button" class="btn ghost sm" data-act="q-del" data-m="${m.id}" data-q="${q.id}">Löschen</button></div>`).join("")}</div>` : ""}</div>`; }).join("") + `</div></section>`;
+      <div class="row"><button type="button" class="btn sm" data-act="mat-open" data-m="${m.id}">${open ? "Fragen ausblenden" : "Fragen ansehen"}</button>${editing ? "" : `<button type="button" class="btn ghost sm" data-act="area-edit" data-m="${m.id}">Themenbereich ändern</button>`}<button type="button" class="btn ghost sm" data-act="mat-del" data-m="${m.id}">Löschen</button></div>
+      ${open ? `<div>${(m.questions||[]).map(q => `<div class="qprev"><div class="grow"><span><span class="tchip">${TYPES[q.type]}</span></span><span>${esc(qPrompt(q))}</span><span class="small ans">${esc(qAnswer(q))}</span></div><button type="button" class="btn ghost sm" data-act="q-del" data-m="${m.id}" data-q="${q.id}">Löschen</button></div>`).join("")}</div>` : ""}</div>`;
+  }
+  return h + (cur ? `</div></section>` : "");
+}
+async function sortAreasAI(){
+  S.areasBusy = true; S.matMsg = ""; render();
+  try{
+    const list = D().materials.map(m => ({id:m.id, fach:m.subject, thema:m.topic, titel:m.title || "", bereich:m.area || ""}));
+    const prompt = `Du ordnest Unterrichtsmaterial einer 4. Grundschulklasse in Bayern nach Themenbereichen. Ein Themenbereich ist ein größerer Unterrichtsblock innerhalb eines Faches, zu dem mehrere Arbeitsblätter gehören (z. B. HSU: "Gemeinde", "Bayern", "Strom"; Deutsch: "Rechtschreibung", "Wortarten", "Sätze"; Mathe: "Zahlen bis zur Million", "Multiplikation", "Größen"; Englisch: "Calendar", "School").
+Regeln: Pro Fach wenige, sinnvolle Bereiche mit 1 bis 3 Wörtern. Blätter, die inhaltlich zusammengehören, bekommen denselben Bereich. Ist "bereich" schon ausgefüllt, behalte ihn, außer er passt offensichtlich nicht. Verwende für das Wort "Themenbereich" nie den Fachnamen selbst.
+Material (JSON):
+${JSON.stringify(list)}
+Antworte nur mit einem JSON-Objekt: {"bereiche":[{"id":"…","bereich":"…"}]}`;
+    const res = await askAI([{text: prompt}], 0.2);
+    const map = {}; for (const r of ((res && res.bereiche) || [])) if (r && r.id && String(r.bereich || "").trim()) map[String(r.id)] = String(r.bereich).trim().slice(0, 40);
+    const n = Object.keys(map).length;
+    if (!n) throw {code:"json"};
+    await refreshIfNeeded();
+    await mutate(d => { for (const m of d.materials) if (map[m.id]) m.area = map[m.id]; });
+    S.matMsg = `Fertig: ${n} Blätter wurden Themenbereichen zugeordnet. Du kannst einzelne Bereiche unten ändern.`;
+  }catch(e){ S.matMsg = aiErr(e); }
+  S.areasBusy = false; render();
 }
 function pResults(){
   const rs = D().results;
   if (!rs.length) return `<section class="card"><h2>Noch keine Ergebnisse</h2><p>Hier erscheinen die Schulaufgaben deines Kindes mit Note und Korrektur.</p></section>`;
-  const agg = {}; for (const r of rs){ const k = r.subject + "|" + r.topic; (agg[k] ||= {subject:r.subject, topic:r.topic, g:[]}).g.push(r.grade); }
+  const agg = {}; for (const r of rs){ if (r.kind === "kurz") continue; const k = r.subject + "|" + r.topic; (agg[k] ||= {subject:r.subject, topic:r.topic, g:[]}).g.push(r.grade); }
   const avg = o => o.g.reduce((x,y)=>x+y,0)/o.g.length;
   const over = Object.values(agg).sort((a,b) => avg(b) - avg(a));
-  return `<section class="card"><h2>Überblick nach Thema</h2><p class="muted small">Schwächste Themen zuerst.</p><div class="list">${over.map(o => `<div class="item"><div class="grow"><b>${esc(o.topic)}</b><div class="muted small">${esc(subj(o.subject).short)} · ${o.g.length} ${o.g.length===1?"Schulaufgabe":"Schulaufgaben"} · zuletzt Note ${o.g[0]}</div></div><span class="mini-stamp" style="font-size:1.1rem">${avg(o).toFixed(1).replace(".",",")}</span></div>`).join("")}</div></section>
-    <section class="card"><h2>Alle Schulaufgaben</h2><div class="list">${rs.map(r => `<button type="button" class="item" data-act="res-open" data-r="${r.id}"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten</div></div><span class="mini-stamp">${r.grade}</span></button>${S.openRes === r.id ? `<div class="card" style="box-shadow:none">${corrList(r.items||[])}</div>` : ""}`).join("")}</div></section>`;
+  return `<section class="card"><h2>Überblick nach Thema</h2><p class="muted small">Nur Proben mit Note, schwächste Themen zuerst.</p><div class="list">${over.map(o => `<div class="item"><div class="grow"><b>${esc(o.topic)}</b><div class="muted small">${esc(subj(o.subject).short)} · ${o.g.length} ${o.g.length===1?"Schulaufgabe":"Schulaufgaben"} · zuletzt Note ${o.g[0]}</div></div><span class="mini-stamp" style="font-size:1.1rem">${avg(o).toFixed(1).replace(".",",")}</span></div>`).join("")}</div></section>
+    <section class="card"><h2>Alle Proben</h2><div class="list">${rs.map(r => `<button type="button" class="item" data-act="res-open" data-r="${r.id}"><div class="grow"><b>${esc(r.topic)}</b><div class="muted small">${r.kind === "kurz" ? "Kurzprobe · " : r.kind === "hoeren" ? "Hörprobe · " : r.kind === "lesen" ? "Leseprobe · " : r.len === "lang" ? "Probe lang · " : r.len === "normal" ? "Probe normal · " : ""}${esc(subj(r.subject).short)} · ${fmtDate(r.createdAt)} · ${fmtP(r.points)} von ${fmtP(r.max)} Punkten${r.minutes != null ? " · " + r.minutes + " Min." : ""}</div></div>${r.kind === "kurz" ? `<span class="mark ${verdictOf(r.percent)[1]}">${r.percent} %</span>` : `<span class="mini-stamp">${r.grade}</span>`}</button>${S.openRes === r.id ? `<div class="card" style="box-shadow:none">${corrList(r.items||[])}</div>` : ""}`).join("")}</div></section>`;
 }
 function pSettings(){
   const s = D().settings, ai = aiCfg();
@@ -790,7 +916,8 @@ function pSettings(){
     <div class="row"><button type="button" class="btn primary" data-act="tt-save">Stundenplan speichern</button></div></section>
   <section class="card"><h2>KI-Anbieter</h2><p class="muted small">Die gewählte KI erstellt die Fragen und korrigiert freie Antworten. Du kannst jederzeit wechseln, die gespeicherten Fragen bleiben erhalten.</p>
     <div class="tog">${PKEYS.map(k => `<button type="button" style="--c:var(--ink)" class="${ai.provider===k?"on":""}" data-act="ai-use" data-p="${k}" ${ai.keys[k] ? "" : "disabled"}>${esc(PROVIDERS[k].name)}</button>`).join("")}</div>
-    ${S.aiMsg ? `<p class="${S.aiMsg.startsWith("Gespeichert") ? "notice" : "err"} small">${esc(S.aiMsg)}</p>` : ""}
+    <div class="row"><button type="button" class="btn sm" data-act="ai-test" ${S.aiTesting ? "disabled" : ""}>${S.aiTesting ? "Wird getestet …" : "Verbindung testen"}</button></div>
+    ${S.aiMsg ? `<p class="${/^(Gespeichert|Verbindung klappt)/.test(S.aiMsg) ? "notice" : "err"} small">${esc(S.aiMsg)}</p>` : ""}
     ${PKEYS.map(k => { const ms = S.models[k];
       return `<details ${ai.provider===k ? "open" : ""}><summary><b>${esc(PROVIDERS[k].long)}</b> <span class="muted small">${ai.keys[k] ? "· Schlüssel …" + esc(ai.keys[k].slice(-4)) + " · " + esc(ai.models[k] || "kein Modell") : "· noch kein Schlüssel"}</span></summary>
         <div class="field" style="margin-top:10px">
@@ -824,18 +951,19 @@ async function toPart(blob, mime, name){
 }
 function genPrompt(grade, nFiles){
   const A = S.add;
-  const existing = catalog().map(s => `${s.key}: ${s.topics.map(t=>t.topic).join("; ")}`).join("\n");
+  const existing = catalog().map(s => `${s.key}: ${s.areas.map(a => a.area).join("; ")}`).join("\n");
   return `Du bist eine erfahrene Grundschullehrerin in Deutschland. Ein Elternteil hat Unterrichtsmaterial seines Kindes hochgeladen (Arbeitsblätter oder Schulbuchseiten, ${nFiles} ${nFiles===1?"Datei":"Dateien"} im Anhang). Das Kind geht in Klasse ${grade}.
 ${A.hint.trim() ? `Hinweis der Eltern: ${A.hint.trim()}` : ""}
 ${A.subject !== "auto" ? `Das Fach ist: ${A.subject}.` : ""}
-${existing ? `Bereits vorhandene Themen (verwende denselben Namen, wenn das Material zu einem davon gehört):\n${existing}` : ""}
+${existing ? `Bereits vorhandene Themenbereiche je Fach (verwende genau denselben Namen, wenn das Material dazu gehört):\n${existing}` : ""}
 
 Deine Aufgabe:
 1. Bestimme das Fach, genau einer dieser Werte: ${SUBJECTS.map(s=>s.key).join(", ")}.
-2. Bestimme das Thema: kurz (2 bis 5 Wörter), so wie es im Unterricht heißt, z. B. "Einmaleins mit 7" oder "Wortarten: Nomen".
+2. Ordne das Material einem Themenbereich zu ("area"): der größere Unterrichtsblock, zu dem mehrere Arbeitsblätter gehören, 1 bis 3 Wörter, z. B. "Gemeinde", "Wortarten", "Rechtschreibung", "Multiplikation", "Seasons and months". Gehört es zu einem vorhandenen Themenbereich, nimm dessen Namen. Bestimme außerdem das Thema des Blattes ("topic"): kurz (2 bis 5 Wörter), ohne den Themenbereich davor, z. B. "Aufgaben der Gemeinde" oder "Nomen und Artikel".
 3. Gib dem Material eine kurze Bezeichnung (z. B. "Arbeitsblatt Nomen und Artikel"), fasse in 1 bis 2 Sätzen zusammen, was geübt wird, und schreibe 3 bis 5 kurze Merksätze ("keyPoints") in Du-Form, die das Kind am Abend vor der nächsten Stunde wiederholen soll (z. B. "Nomen schreibt man groß.").
 4. Lies das Datum, das auf dem Blatt oder der Seite steht (oft oben rechts, z. B. "Datum: 23.10."), und gib es als "lessonDate" zurück: genau so wie es dasteht, z. B. "23.10.2026" oder "23.10.". Bei mehreren Blättern mit verschiedenen Daten nimm das späteste. Steht kein Datum da, setze "lessonDate": null. Erfinde kein Datum.
-5. Schreibe 14 Fragen, die genau den Stoff dieses Materials abfragen: 4 vom Typ "mc", 4 "gap", 3 "short", 3 "free".
+5. Nur wenn das Fach Englisch ist: Liste unter "vocab" alle Vokabeln des Materials auf, als [{"en":"autumn","de":"der Herbst","topic":"Seasons"}] (englische Nomen ohne Artikel, deutsche mit Artikel). Bei anderen Fächern "vocab": [].
+6. Schreibe 20 Fragen, die genau den Stoff dieses Materials abfragen: 5 vom Typ "mc", 5 "gap", 5 "short", 5 "free". "mc" und "gap" prüfen Wissen, "short" prüft Anwenden (z. B. rechnen, ein Wort richtig schreiben, einen Begriff nennen), "free" verlangt Begründen oder Erklären in eigenen Worten.
 
 Regeln für die Fragen:
 - Kindgerechte, einfache Sprache in Du-Form, passend für Klasse ${grade}.
@@ -850,7 +978,7 @@ Regeln für die Fragen:
 - Wenn das Material unlesbar ist oder kein Schulstoff, antworte mit {"error": "kurze Begründung auf Deutsch"}.
 
 Antworte nur mit einem JSON-Objekt in genau dieser Form:
-{"subject":"Deutsch","topic":"Wortarten: Nomen","title":"Arbeitsblatt Nomen","summary":"…","keyPoints":["…","…","…"],"lessonDate":"23.10.2026","questions":[{"type":"mc","prompt":"…","options":["…","…","…"],"correct":0,"explanation":"…"},{"type":"gap","prompt":"Setze das passende Wort ein.","text":"Der ___ bellt laut.","accepted":["Hund"],"explanation":"…"},{"type":"short","prompt":"…","accepted":["…"],"explanation":"…"},{"type":"free","prompt":"…","modelAnswer":"…","rubric":"…","explanation":"…"}]}`;
+{"subject":"Deutsch","area":"Wortarten","topic":"Nomen und Artikel","title":"Arbeitsblatt Nomen","summary":"…","keyPoints":["…","…","…"],"vocab":[],"lessonDate":"23.10.2026","questions":[{"type":"mc","prompt":"…","options":["…","…","…"],"correct":0,"explanation":"…"},{"type":"gap","prompt":"Setze das passende Wort ein.","text":"Der ___ bellt laut.","accepted":["Hund"],"explanation":"…"},{"type":"short","prompt":"…","accepted":["…"],"explanation":"…"},{"type":"free","prompt":"…","modelAnswer":"…","rubric":"…","explanation":"…"}]}`;
 }
 function strList(x){ return (Array.isArray(x) ? x : x != null ? [x] : []).map(v => String(v).trim()).filter(Boolean); }
 function cleanQ(q){
@@ -889,18 +1017,18 @@ async function generate(){
     const times = used.map(id => byId[id] && byId[id].createdTime).filter(Boolean).sort();
     const photoDay = times.length ? isoDay(new Date(times[0])) : null;
     const source = [src.foto ? `${src.foto} ${src.foto===1?"Foto":"Fotos"}` : "", src.pdf ? `${src.pdf} PDF` : ""].filter(Boolean).join(", ");
-    A.draft = {subject, topic: String(out.topic || "").trim() || "Neues Thema", title: String(out.title || "").trim(), summary: String(out.summary || "").trim(), keyPoints: strList(out.keyPoints).slice(0,5), lessonDate: lessonFound || photoDay || isoDay(new Date()), dateSource: lessonFound ? "blatt" : photoDay ? "foto" : "heute", grade:Number(grade), questions, source, used};
+    A.draft = {subject, area: String(out.area || "").trim() || String(out.topic || "").trim() || "Neuer Themenbereich", topic: String(out.topic || "").trim() || "Neues Thema", title: String(out.title || "").trim(), summary: String(out.summary || "").trim(), keyPoints: strList(out.keyPoints).slice(0,5), vocab: subject === "Englisch" ? cleanVocab(out.vocab, String(out.area || out.topic || "")) : [], lessonDate: lessonFound || photoDay || isoDay(new Date()), dateSource: lessonFound ? "blatt" : photoDay ? "foto" : "heute", grade:Number(grade), questions, source, used};
   }catch(e){ A.err = aiErr(e); }
   A.busy = false; render();
 }
 async function saveDraft(){
   const d = S.add.draft; S.add.err = "";
-  if (!d.topic.trim()){ S.add.err = "Bitte gib ein Thema an."; return render(); }
+  if (!d.topic.trim() || !String(d.area || "").trim()){ S.add.err = "Bitte gib Themenbereich und Thema an."; return render(); }
   if (!d.questions.length){ S.add.err = "Es ist keine Frage mehr übrig."; return render(); }
   d.saving = true; render();
   try{
-    const m = {id: rid() + rid(), subject:d.subject, topic:d.topic.trim(), title:d.title.trim(), summary:d.summary, keyPoints:d.keyPoints, lessonDate: d.lessonDate || isoDay(new Date()), grade:d.grade, source:d.source, createdAt:Date.now(), questions:d.questions};
-    await mutate(x => { x.materials.push(m); for (const id of d.used) if (!x.processed.includes(id)) x.processed.push(id); });
+    const m = {id: rid() + rid(), subject:d.subject, area:String(d.area).trim(), topic:d.topic.trim(), title:d.title.trim(), summary:d.summary, keyPoints:d.keyPoints, lessonDate: d.lessonDate || isoDay(new Date()), grade:d.grade, source:d.source, createdAt:Date.now(), questions:d.questions};
+    await mutate(x => { x.materials.push(m); if (d.vocab && d.vocab.length) addVocab(x, d.vocab); for (const id of d.used) if (!x.processed.includes(id)) x.processed.push(id); });
     Object.assign(S.add, {sel:{}, local:[], hint:"", subject:"auto", grade:"", err:"", draft:null});
     S.ptab = "materials"; S.matMsg = "";
   }catch(e){ d.saving = false; S.add.err = driveErr(e); }
@@ -945,12 +1073,13 @@ function parseImport(text, name, fileId){
     const questions = (Array.isArray(m && m.questions) ? m.questions : []).map(cleanQ).filter(Boolean);
     const topic = String((m && m.topic) || "").trim();
     if (!questions.length || !topic){ skipped++; continue; }
-    materials.push({subject: mapSubject(m.subject), topic, title: String(m.title || "").trim(), summary: String(m.summary || "").trim(),
+    materials.push({subject: mapSubject(m.subject), area: String(m.area || "").trim() || undefined, topic, title: String(m.title || "").trim(), summary: String(m.summary || "").trim(),
       keyPoints: strList(m.keyPoints).slice(0,5), lessonDate: normDate(m.lessonDate) || isoDay(new Date()),
       grade: Number(m.grade) || Number(D().settings.grade) || null, source: "Startpaket", questions});
   }
-  if (!materials.length) throw {code:"material", message:`In „${name}“ wurden keine verwendbaren Fragen gefunden.`};
-  return {name, fileId, materials, skipped, importKey: obj && obj.id ? String(obj.id) : null};
+  const vocab = cleanVocab(obj && obj.vocab);
+  if (!materials.length && !vocab.length) throw {code:"material", message:`In „${name}“ wurden keine verwendbaren Fragen gefunden.`};
+  return {name, fileId, materials, vocab, skipped, importKey: obj && obj.id ? String(obj.id) : null};
 }
 async function openImport(f){
   S.impErr = ""; S.add.busy = "Startpaket wird gelesen …"; render();
@@ -966,6 +1095,7 @@ async function doImport(){
       if (k && d.imports.includes(k)) return;
       const now = Date.now();
       I.materials.forEach((m, i) => d.materials.push({...m, id: rid() + rid(), createdAt: now + i}));
+      if (I.vocab && I.vocab.length) addVocab(d, I.vocab);
       if (k) d.imports.push(k);
       if (I.fileId && !d.processed.includes(I.fileId)) d.processed.push(I.fileId);
     });
@@ -979,7 +1109,7 @@ function pImport(){
   const nq = I.materials.reduce((a,m) => a + m.questions.length, 0);
   const already = (D().imports || []).includes(I.importKey || I.fileId);
   return `<section class="card"><h2>Startpaket importieren</h2><p class="muted">${esc(I.name)}</p>
-    <p><b>${I.materials.length} Materialien</b> mit <b>${nq} Fragen</b>${I.skipped ? ` · ${I.skipped} unvollständige Einträge werden übersprungen` : ""}</p>
+    <p><b>${I.materials.length} Materialien</b> mit <b>${nq} Fragen</b>${I.vocab && I.vocab.length ? ` · <b>${I.vocab.length} Vokabeln</b>` : ""}${I.skipped ? ` · ${I.skipped} unvollständige Einträge werden übersprungen` : ""}</p>
     ${already ? `<p class="notice small">Dieses Startpaket wurde schon importiert. Ein zweiter Import wird übersprungen, damit nichts doppelt vorkommt.</p>` : ""}
     <div class="list">${Object.entries(groups).sort((a,b) => SUBJECTS.findIndex(s=>s.key===a[0]) - SUBJECTS.findIndex(s=>s.key===b[0])).map(([sj, ts]) => `<div class="item" style="flex-direction:column;align-items:flex-start"><span class="chip" style="--c:${col(sj)}">${esc(subj(sj).short)}</span><span class="small">${Object.entries(ts).map(([t,n]) => `${esc(t)} (${n})`).join(" · ")}</span></div>`).join("")}</div>
     ${S.impErr ? `<p class="err small">${esc(S.impErr)}</p>` : ""}
@@ -992,7 +1122,7 @@ async function grade(force){
   S.view = "grading"; render();
   const items = t.qs.map((q,i) => {
     const a = t.answers[i];
-    const it = {key:q.key, type:q.type, prompt:qPrompt(q), max:q.points, points:null, feedback:"", explanation:q.explanation || ""};
+    const it = {key:q.key, type:q.type, prompt:qPrompt(q), max:q.points, points:null, feedback:"", explanation:q.explanation || "", src:q.src || ""};
     if (q.type === "mc"){ it.given = a == null ? "" : q.options[a]; it.expected = q.options[q.correct]; it.points = a === q.correct ? q.points : 0; }
     else { it.given = String(a || "").trim(); it.expected = q.type === "free" ? q.modelAnswer : q.accepted[0];
       if (!it.given) it.points = 0; else if (q.type !== "free" && matches(it.given, q.accepted, strict)) it.points = q.points; }
@@ -1016,13 +1146,13 @@ Antworte nur mit einem JSON-Objekt: {"ergebnisse":[{"i":0,"points":1,"feedback":
         it.points = Math.max(0, Math.min(it.max, Math.round(Number(r.points)*2)/2 || 0));
         it.feedback = String(r.feedback || "").trim();
       }
-    }catch(e){ S.gradeErr = aiErr(e); S.view = "gradeErr"; return render(); }
+    }catch(e){ S.gradeErr = aiErr(e && e.code ? e : {code:"ai", message: String((e && e.message) || e)}); S.view = "gradeErr"; return render(); }
   }
   for (const it of items) if (it.points == null && it.type !== "free") it.points = 0;
   const note = items.some(it => it.points == null) ? "Die freien Antworten wurden nicht bewertet und zählen nicht zur Note." : "";
   const scored = items.filter(it => it.points != null);
   const points = scored.reduce((s,it)=>s+it.points,0), max = scored.reduce((s,it)=>s+it.max,0), percent = max ? Math.round(points/max*100) : 0;
-  const r = {id: rid() + rid(), subject:t.subject, topic:t.topic || "Alles gemischt", createdAt:Date.now(), points, max, percent, grade:gradeOf(percent), note, items};
+  const r = {id: rid() + rid(), kind: t.len === "kurz" ? "kurz" : (t.len === "hoeren" || t.len === "lesen") ? t.len : "probe", len:t.len, matId:t.matId, textId:t.textId || null, minutes: Math.round((Date.now() - t.start)/60000), subject:t.subject, topic:t.label, area:t.area, createdAt:Date.now(), points, max, percent, grade:gradeOf(percent), note, items};
   S.last = r; S.saveErr = ""; S.view = "result"; render();
   saveResult(r);
 }
@@ -1059,20 +1189,337 @@ async function saveKey(p){
   }catch(e){ S.keyBusy = ""; S.keyErr = e.code === "quota" ? "Der Schlüssel funktioniert, aber das Limit oder Guthaben ist gerade erreicht." : e.code === "auth" || e.code === "drive" ? driveErr(e) : e.code === "net" ? "Keine Internetverbindung." : "Dieser Schlüssel funktioniert nicht. Bitte prüfe, ob er vollständig kopiert wurde."; render(); }
 }
 
+/* ---------- Vorlesen (Tablet-Stimme) ---------- */
+function ttsOk(){ return "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined"; }
+function pickVoice(lang){
+  try{
+    const vs = speechSynthesis.getVoices() || [];
+    const pre = lang.slice(0,2).toLowerCase();
+    const cand = vs.filter(v => (v.lang || "").toLowerCase().replace("_","-").startsWith(pre));
+    const exact = cand.filter(v => (v.lang || "").toLowerCase().replace("_","-") === lang.toLowerCase());
+    const list = exact.length ? exact : cand;
+    return list.find(v => /google|enhanced|premium|natural/i.test(v.name)) || list.find(v => v.localService) || list[0] || null;
+  }catch(e){ return null; }
+}
+try{ if (ttsOk()) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; } }catch(e){}
+function chunkText(text){
+  const sents = String(text).replace(/\s+\n/g, "\n").split(/(?<=[.!?…:])\s+|\n+/).map(x => x.trim()).filter(Boolean);
+  const out = []; let cur = "";
+  for (const x of sents){ if ((cur + " " + x).length > 220 && cur){ out.push(cur); cur = x; } else cur = cur ? cur + " " + x : x; }
+  if (cur) out.push(cur);
+  return out;
+}
+let speaker = null;
+/* Muss direkt aus einem Klick heraus starten (iPad), danach laufen die Sätze nacheinander. */
+function speak(text, {lang = "de-DE", rate = 0.9, onProgress, onEnd} = {}){
+  stopSpeak();
+  if (!ttsOk()){ onEnd && onEnd(false); return null; }
+  const chunks = chunkText(text), voice = pickVoice(lang);
+  const ctl = {stopped:false, i:0, n:chunks.length};
+  const next = () => {
+    if (ctl.stopped) return;
+    if (ctl.i >= chunks.length){ speaker = null; onEnd && onEnd(true); return; }
+    const u = new SpeechSynthesisUtterance(chunks[ctl.i]);
+    u.lang = lang; u.rate = rate; if (voice) u.voice = voice;
+    u.onend = () => { ctl.i++; onProgress && onProgress(ctl.i / ctl.n); setTimeout(next, 120); };
+    u.onerror = e => { if (ctl.stopped || (e && (e.error === "interrupted" || e.error === "canceled"))) return; ctl.i++; setTimeout(next, 120); };
+    speechSynthesis.speak(u);
+  };
+  speaker = ctl; next();
+  return ctl;
+}
+function stopSpeak(){ if (speaker) speaker.stopped = true; speaker = null; try{ if (ttsOk()) speechSynthesis.cancel(); }catch(e){} }
+function sayWord(w, lang = "en-GB"){ if (!ttsOk() || !w) return; try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(w); u.lang = lang; u.rate = 0.85; const v = pickVoice(lang); if (v) u.voice = v; speechSynthesis.speak(u); }catch(e){} }
+let wakeLock = null;
+async function keepAwake(on){
+  try{
+    if (on && "wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+    if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){ wakeLock = null; }
+}
+
+/* ---------- Hör- und Leseproben ---------- */
+const LIT = {
+  hoeren: {name:"Hörprobe", words:1000, min:20, desc:"Eine Geschichte wird zweimal vorgelesen. Danach beantwortest du Fragen dazu."},
+  lesen:  {name:"Leseprobe", words:600,  min:30, desc:"Du liest einen Text und beantwortest Fragen dazu. Der Text bleibt dabei sichtbar."}
+};
+const textsOf = kind => (D().texts || []).filter(t => t.kind === kind).sort((a,b) => b.createdAt - a.createdAt);
+const lastText = id => D().results.find(r => r.textId === id);
+function litPrompt(kind, theme, art){
+  const grade = D().settings.grade || 4, hoer = kind === "hoeren";
+  return `Du bist eine erfahrene Grundschullehrerin in Bayern und erstellst eine ${hoer ? "Hörprobe (Hörverstehen)" : "Leseprobe (Leseverständnis)"} für ein Kind der Klasse ${grade}.
+${hoer ? `Schreibe eine spannende, kindgerechte Geschichte mit etwa 1000 Wörtern (das sind beim ruhigen Vorlesen ungefähr 8 Minuten). Die Geschichte wird nur vorgelesen, das Kind sieht den Text nicht. Deshalb: klare Handlung in zeitlicher Reihenfolge, wenige Hauptfiguren mit einfachen Namen, gut merkbare Einzelheiten (Orte, Zahlen, Farben, Gegenstände, Gefühle, Gründe), kurze bis mittellange Sätze, wörtliche Rede gut erkennbar mit Sprecher.`
+       : `Schreibe einen ${art === "sachtext" ? "kindgerechten Sachtext" : art === "geschichte" ? "kindgerechten erzählenden Text" : "kindgerechten Text (Geschichte oder Sachtext, du entscheidest)"} mit etwa 600 Wörtern, gegliedert in 4 bis 6 Absätze. Das Kind darf den Text beim Beantworten ansehen.`}
+${theme ? `Thema oder Wunsch des Kindes: ${theme}` : "Wähle ein Thema, das Kinder in diesem Alter interessiert."}
+Keine Gewalt, nichts Gruseliges, keine Markennamen, keine echten Personen.
+
+Danach schreibe 12 Fragen zum ${hoer ? "Gehörten" : "Text"}: 5 vom Typ "mc" (davon 2 als Richtig/Falsch mit den Optionen ["richtig","falsch"]), 2 vom Typ "gap" (ein Satz aus der Handlung mit genau einer Lücke ___, die Lösung ist ein Wort aus dem Text), 3 vom Typ "short" (Name, Zahl, Ort oder ein Wort), 2 vom Typ "free" (Gründe, Gefühle oder Meinung mit Begründung).
+${hoer ? "Alle Fragen müssen nach zweimaligem Zuhören beantwortbar sein. Frage nicht nach Kleinigkeiten, die man beim Hören nicht behalten kann." : `Mische Fragen zum genauen Lesen ("Finde im Text …"), zur Reihenfolge, zu Gründen und eine Frage, welche Überschrift am besten passt.`}
+Die Fragen folgen der Reihenfolge der Handlung bzw. des Textes. Gleiche Feldregeln wie üblich:
+- "mc": "prompt", "options", "correct" (Index ab 0)
+- "gap": "prompt", "text" (mit ___), "accepted" (Liste)
+- "short": "prompt", "accepted" (Liste gültiger Antworten)
+- "free": "prompt", "modelAnswer", "rubric"
+- jede Frage mit "explanation" (kurzer Satz, wo im ${hoer ? "Hörtext" : "Text"} die Antwort steckt)
+
+Antworte nur mit einem JSON-Objekt: {"title":"…","text":"Absatz 1\\n\\nAbsatz 2 …","questions":[…]}`;
+}
+async function createLit(kind){
+  const theme = String((document.getElementById("litTheme") || {}).value || "").trim().slice(0, 80);
+  const art = (document.getElementById("litArt") || {}).value || "egal";
+  S.litBusy = true; S.litErr = ""; render();
+  try{
+    await refreshIfNeeded();
+    const out = await askAI([{text: litPrompt(kind, theme, art)}], 0.9);
+    const text = String((out && out.text) || "").trim();
+    const questions = (Array.isArray(out && out.questions) ? out.questions : []).map(cleanQ).filter(Boolean);
+    if (text.split(/\s+/).length < (kind === "hoeren" ? 500 : 250) || questions.length < 6) throw {code:"json"};
+    const t = {id: rid() + rid(), kind, title: String(out.title || "Ohne Titel").trim().slice(0, 80), theme, text, words: text.split(/\s+/).length, questions, createdAt: Date.now()};
+    await mutate(d => { d.texts = d.texts || []; d.texts.push(t); if (d.texts.length > 60) d.texts = d.texts.sort((a,b) => b.createdAt - a.createdAt).slice(0, 60); });
+    S.litOpen = t.id;
+  }catch(e){ S.litErr = aiErr(e); }
+  S.litBusy = false; render();
+}
+function litView(){
+  const kind = S.litKind, L = LIT[kind], list = textsOf(kind);
+  return `<section class="subjhead" style="--c:${col("Deutsch")}"><p class="small">Deutsch</p><h1>${L.name}</h1></section>
+  <section class="card"><p>${L.desc}</p>
+    <div class="grid2"><div class="field"><label for="litTheme">Wunschthema (optional)</label><input id="litTheme" class="fin" maxlength="80" placeholder="z. B. Piraten, Fußball, Weltraum"></div>
+    ${kind === "lesen" ? `<div class="field"><label for="litArt">Art des Textes</label><select id="litArt" class="fin"><option value="egal">egal</option><option value="geschichte">Geschichte</option><option value="sachtext">Sachtext</option></select></div>` : ""}</div>
+    ${S.litErr ? `<p class="err small">${esc(S.litErr)}</p>` : ""}
+    <div class="row">${S.litBusy ? `<div class="spin" style="width:28px;height:28px;border-width:4px"></div><span>Der Text wird geschrieben … (meist 20 bis 60 Sekunden)</span>` : `<button type="button" class="btn primary" data-act="lit-new">Neuen Text erstellen</button>`}</div>
+    ${kind === "hoeren" && !ttsOk() ? `<p class="err small">Dieser Browser kann nicht vorlesen. Bitte öffne das Lernheft in Chrome oder Safari.</p>` : ""}</section>
+  ${list.length ? `<section class="card"><h2>Deine Texte</h2><div class="list">${list.map(t => { const l = lastText(t.id);
+      return `<button type="button" class="item" data-act="lit-open" data-t="${t.id}"><div class="grow"><b>${esc(t.title)}</b><div class="muted small">${t.words} Wörter${kind === "hoeren" ? " · ca. " + Math.max(1, Math.round(t.words / 125)) + " Min. zum Anhören" : ""} · ${t.questions.length} Fragen${l ? " · Note " + l.grade : " · noch nicht geübt"}</div></div>${l ? `<span class="mini-stamp">${l.grade}</span>` : `<span aria-hidden="true">›</span>`}</button>`; }).join("")}</div></section>` : ""}
+  <div class="row"><button type="button" class="btn ghost" data-act="back-topics">‹ Zurück zu Deutsch</button></div>`;
+}
+function litQuestions(locked){
+  const t = S.test;
+  return t.qs.map((q, i) => { const a = t.answers[i];
+    let inp;
+    if (q.type === "mc") inp = `<div class="opts">${q.options.map((o, k) => `<button type="button" class="opt ${a===k?"sel":""}" data-act="lmc" data-q="${i}" data-i="${k}" ${locked ? "disabled" : ""}><span class="let">${"abcde"[k]}</span><span>${esc(o)}</span></button>`).join("")}</div>`;
+    else if (q.type === "gap"){ const p = q.text.split("___"); inp = `<p class="gapline">${esc(p[0])}<input class="inp gap" data-lq="${i}" id="lq${i}" autocomplete="off" spellcheck="false" value="${esc(a||"")}" ${locked ? "disabled" : ""}>${esc(p.slice(1).join("___"))}</p>`; }
+    else if (q.type === "short") inp = `<input class="inp short" data-lq="${i}" id="lq${i}" autocomplete="off" spellcheck="false" value="${esc(a||"")}" ${locked ? "disabled" : ""}>`;
+    else inp = `<textarea class="free" data-lq="${i}" id="lq${i}" spellcheck="false" ${locked ? "disabled" : ""}>${esc(a||"")}</textarea>`;
+    return `<div class="field" style="padding:12px 0;border-top:1px dashed var(--line)"><div class="aufg"><span class="anr">${i+1}.</span><span class="pts">${q.points} P.</span></div>
+      ${q.type === "gap" ? `<p class="muted">${esc(q.prompt || "Ergänze.")}</p>` : `<p class="qtext" style="font-size:1.08rem">${esc(q.prompt)}</p>`}${inp}</div>`;
+  }).join("");
+}
+function startLitTest(t){
+  const qs = t.questions.map(q => ({...q, key: "text:" + t.id + ":" + q.id, points: POINTS[q.type] || 1, src: `${LIT[t.kind].name} „${t.title}“`}));
+  S.test = {subject:"Deutsch", label:`${LIT[t.kind].name}: ${t.title}`, area:null, len:t.kind, textId:t.id, qs, answers:qs.map(() => null), idx:0, confirm:false, start:Date.now()};
+}
+function hearView(){
+  const H = S.hear, t = (D().texts || []).find(x => x.id === H.textId);
+  if (!t){ S.view = "lit"; return litView(); }
+  const steps = [["intro","Start"],["listen1","1. Hören"],["read","Fragen lesen"],["listen2","2. Hören"],["answer","Fertig machen"]];
+  const cur = steps.findIndex(s => s[0] === H.phase);
+  const bar = `<section class="card"><div class="tbar"><b>Hörprobe: ${esc(t.title)}</b><span class="small muted">${steps.map((s,i) => i === cur ? `<b>${s[1]}</b>` : s[1]).join(" · ")}</span></div></section>`;
+  if (H.phase === "intro") return bar + `<section class="card"><h2>So läuft die Hörprobe ab</h2>
+    <ol class="steps"><li><b>Erstes Hören:</b> Hör gut zu. Du siehst noch keine Fragen. Du kannst nicht anhalten oder zurückspulen.</li>
+      <li><b>Fragen lesen:</b> Du bekommst etwa 2 Minuten, um die Fragen in Ruhe durchzulesen.</li>
+      <li><b>Zweites Hören:</b> Die Geschichte kommt noch einmal. Jetzt darfst du schon antworten.</li>
+      <li><b>Fertig machen:</b> Danach hast du Zeit, alle Fragen zu beantworten. Dann gibst du ab.</li></ol>
+    <p class="muted small">Die Geschichte dauert etwa ${Math.max(1, Math.round(t.words / 125))} Minuten. Stell den Ton laut genug und such dir einen ruhigen Platz.</p>
+    ${ttsOk() ? `<div class="row"><button type="button" class="btn primary" data-act="hear-go">Erstes Hören starten</button><button type="button" class="btn ghost" data-act="hear-quit">Abbrechen</button></div>` : `<p class="err">Dieser Browser kann nicht vorlesen. Bitte öffne das Lernheft in Chrome oder Safari.</p>`}</section>`;
+  if (H.phase === "listen1" || H.phase === "listen2"){
+    const ear = `<section class="card center"><div style="font-size:3.4rem" aria-hidden="true">👂</div><h2>${H.phase === "listen1" ? "Erstes Hören" : "Zweites Hören"}</h2>
+      <p class="muted">${H.phase === "listen1" ? "Hör genau zu. Die Fragen kommen gleich." : "Du darfst jetzt schon antworten."}</p>
+      <div class="bar" style="width:100%"><i id="hearBar" style="width:${Math.round((H.prog||0)*100)}%"></i></div>
+      ${H.ended ? `<button type="button" class="btn primary" data-act="hear-next">${H.phase === "listen1" ? "Weiter zu den Fragen" : "Weiter zum Fertigmachen"}</button>` : `<p class="small muted" id="hearHint">Die Geschichte läuft …</p>`}
+      ${H.err ? `<p class="err small">${esc(H.err)}</p>` : ""}</section>`;
+    return bar + ear + (H.phase === "listen2" ? `<section class="card"><h2>Fragen</h2>${litQuestions(false)}</section>` : "") +
+      `<div class="row" style="justify-content:center"><button type="button" class="btn ghost sm" data-act="hear-quit">Hörprobe abbrechen</button></div>`;
+  }
+  if (H.phase === "read"){
+    const left = Math.max(0, 120 - Math.floor((Date.now() - H.readStart) / 1000));
+    return bar + `<section class="card"><div class="tbar"><h2>Lies die Fragen durch</h2><span class="small muted" id="readClock">noch ${Math.ceil(left/60)} Min.</span></div>
+      <p class="muted small">Gleich hörst du die Geschichte ein zweites Mal. Dann darfst du antworten.</p>${litQuestions(true)}
+      <div class="row"><button type="button" class="btn primary" data-act="hear-go2">Zweites Hören starten</button></div></section>`;
+  }
+  const open = S.test.answers.filter(isEmpty).length;
+  return bar + `<section class="card"><h2>Beantworte alle Fragen</h2>${litQuestions(false)}
+    ${S.test.confirm ? `<div class="notice"><p><b>${open} ${open===1?"Frage ist":"Fragen sind"} noch leer.</b> Trotzdem abgeben?</p><div class="row" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="lit-submit-force">Trotzdem abgeben</button><button type="button" class="btn sm" data-act="confirm-no-lit">Weiter arbeiten</button></div></div>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="lit-submit">Abgeben</button></div></section>`;
+}
+function readView(){
+  const t = (D().texts || []).find(x => x.id === S.readTextId);
+  if (!t){ S.view = "lit"; return litView(); }
+  const el = Math.floor((Date.now() - S.test.start) / 60000), open = S.test.answers.filter(isEmpty).length;
+  return `<section class="card"><div class="tbar"><b>Leseprobe</b><span class="small ${el > LIT.lesen.min ? "err" : "muted"}" id="quizClock">${el} von ${LIT.lesen.min} Min.</span></div></section>
+  <section class="card"><h2>${esc(t.title)}</h2><div style="font-size:1.12rem;line-height:1.7;display:flex;flex-direction:column;gap:12px">${t.text.split(/\n\s*\n|\n/).filter(x => x.trim()).map((p, i) => `<p><span class="muted small" style="font-variant-numeric:tabular-nums">${i+1}</span>&nbsp; ${esc(p)}</p>`).join("")}</div></section>
+  <section class="card"><h2>Fragen zum Text</h2>${litQuestions(false)}
+    ${S.test.confirm ? `<div class="notice"><p><b>${open} ${open===1?"Frage ist":"Fragen sind"} noch leer.</b> Trotzdem abgeben?</p><div class="row" style="margin-top:10px"><button type="button" class="btn primary sm" data-act="lit-submit-force">Trotzdem abgeben</button><button type="button" class="btn sm" data-act="confirm-no-lit">Weiter arbeiten</button></div></div>` : ""}
+    <div class="row"><button type="button" class="btn primary" data-act="lit-submit">Abgeben</button><button type="button" class="btn ghost sm" data-act="read-quit">Abbrechen</button></div></section>`;
+}
+function hearPlay(n){
+  const t = (D().texts || []).find(x => x.id === S.hear.textId);
+  S.hear.phase = n === 1 ? "listen1" : "listen2"; S.hear.prog = 0; S.hear.ended = false; S.hear.err = "";
+  keepAwake(true);
+  const ctl = speak(t.title + ". " + t.text, {lang:"de-DE", rate:0.9,
+    onProgress: p => { S.hear.prog = p; const b = document.getElementById("hearBar"); if (b) b.style.width = Math.round(p*100) + "%"; },
+    onEnd: ok => { S.hear.ended = true; if (!ok) S.hear.err = "Das Vorlesen hat nicht geklappt. Prüfe, ob der Ton an ist."; if (S.view === "hear") render(); }});
+  render();
+  if (ctl) setTimeout(() => { try{ if (S.view === "hear" && !speechSynthesis.speaking && !speechSynthesis.pending && !S.hear.ended){ S.hear.err = "Es ist nichts zu hören? Prüfe den Ton und tippe sonst auf „Abbrechen“ und starte neu."; render(); } }catch(e){} }, 4000);
+}
+let readTimer = null;
+
+/* ---------- Vokabeltrainer ---------- */
+const BOX_DAYS = [0, 0, 1, 3, 7, 14];
+const vocabList = () => D().vocab || [];
+const vDue = v => !v.due || v.due <= isoDay(new Date());
+const vTopics = () => [...new Set(vocabList().map(v => v.topic || "Sonstige"))].sort((a,b) => a.localeCompare(b, "de"));
+function vNorm(s, lang){
+  s = String(s || "").toLowerCase().trim().replace(/[.!?;:"'„“”‚‘’()]/g, "").replace(/\s+/g, " ");
+  if (lang === "en") s = s.replace(/^(the|a|an|to) /, "");
+  else s = s.replace(/^(der|die|das|ein|eine) /, "").replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss");
+  return s;
+}
+const vAlts = s => String(s || "").split(/\s*[\/;,]\s*/).filter(Boolean);
+function vMatch(given, target, lang){ const g = vNorm(given, lang); return !!g && vAlts(target).some(t => vNorm(t, lang) === g); }
+function vocabHome(){
+  const all = vocabList(), due = all.filter(vDue).length, topics = vTopics(), sel = S.vTopic || "";
+  const boxes = [1,2,3,4,5].map(b => all.filter(v => (v.box || 1) === b).length);
+  if (!all.length) return `<section class="subjhead" style="--c:${col("Englisch")}"><p class="small">Englisch</p><h1>Vokabeltrainer</h1></section>
+    <section class="card"><h2>Noch keine Vokabeln</h2><p>Bitte deine Eltern, im Elternbereich unter „Vokabeln“ Wörter hinzuzufügen oder aus dem Englisch-Material sammeln zu lassen.</p></section>
+    <div class="row"><button type="button" class="btn ghost" data-act="back-topics">‹ Zurück zu Englisch</button></div>`;
+  return `<section class="subjhead" style="--c:${col("Englisch")}"><p class="small">Englisch</p><h1>Vokabeltrainer</h1></section>
+  <section class="card"><div class="tbar"><b>${all.length} Vokabeln</b><span class="small muted">${due} heute fällig</span></div>
+    <div class="row" aria-label="Karteikasten">${boxes.map((n,i) => `<div class="item" style="width:auto;flex:1 1 90px;flex-direction:column;align-items:flex-start;gap:2px"><span class="small muted">Fach ${i+1}</span><b>${n}</b></div>`).join("")}</div>
+    <p class="muted small">Gewusste Wörter wandern ein Fach weiter und kommen seltener dran. Falsche Wörter fangen wieder in Fach 1 an.</p></section>
+  <section class="card"><h2>Welche Wörter?</h2>
+    <div class="tog"><button type="button" style="--c:var(--ink)" class="${!sel ? "on" : ""}" data-act="v-topic" data-t="">Alle</button>${topics.map(t => `<button type="button" style="--c:var(--ink)" class="${sel === t ? "on" : ""}" data-act="v-topic" data-t="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+    <h2>Wie möchtest du üben?</h2>
+    <div class="list">
+      <button type="button" class="item" data-act="v-start" data-m="de-en"><div class="grow"><b>Deutsch → Englisch</b><div class="muted small">Du siehst das deutsche Wort und schreibst es auf Englisch.</div></div><span aria-hidden="true">›</span></button>
+      <button type="button" class="item" data-act="v-start" data-m="en-de"><div class="grow"><b>Englisch → Deutsch</b><div class="muted small">Du siehst und hörst das englische Wort und schreibst es auf Deutsch.</div></div><span aria-hidden="true">›</span></button>
+      <button type="button" class="item" data-act="v-start" data-m="listen"><div class="grow"><b>Anhören und schreiben</b><div class="muted small">Das englische Wort wird vorgesprochen, du schreibst es auf Englisch.</div></div><span aria-hidden="true">›</span></button>
+      <button type="button" class="item" data-act="v-start" data-m="cards"><div class="grow"><b>Karteikarten</b><div class="muted small">Karte aufdecken und selbst sagen, ob du es gewusst hast.</div></div><span aria-hidden="true">›</span></button>
+    </div>${S.vMsg ? `<p class="notice small">${esc(S.vMsg)}</p>` : ""}</section>
+  <div class="row"><button type="button" class="btn ghost" data-act="back-topics">‹ Zurück zu Englisch</button></div>`;
+}
+function vStart(mode){
+  const pool = vocabList().filter(v => !S.vTopic || (v.topic || "Sonstige") === S.vTopic);
+  if (!pool.length) return;
+  const due = pool.filter(vDue).sort((a,b) => (a.box||1) - (b.box||1) || Math.random() - .5);
+  const rest = pool.filter(v => !vDue(v)).sort((a,b) => (a.box||1) - (b.box||1) || Math.random() - .5);
+  const items = [...due, ...rest].slice(0, 12).sort(() => Math.random() - .5).map(v => v.id);
+  S.voc = {mode, items, idx:0, ans:"", state:null, res:{}, start:Date.now()};
+  S.vMsg = ""; go("vtrain");
+  if (mode === "listen" || mode === "en-de") vSay();
+}
+const vCur = () => vocabList().find(v => v.id === S.voc.items[S.voc.idx]);
+function vSay(){ const v = vCur(); if (v) sayWord(vAlts(v.en)[0]); }
+function vTrain(){
+  const V = S.voc, v = vCur(), n = V.items.length;
+  if (!v || V.idx >= n){
+    const ok = Object.values(V.res).filter(Boolean).length, tot = Object.keys(V.res).length;
+    return `<section class="card center"><p class="comment">${ok === tot ? "Alles gewusst!" : ok >= tot * .7 ? "Gut gemacht!" : "Weiter üben!"}</p><h2>${ok} von ${tot} Wörtern gewusst</h2>
+      ${S.saveErr ? `<p class="err small">${esc(S.saveErr)}</p><button type="button" class="btn sm" data-act="v-save">Nochmal speichern</button>` : ""}
+      <div class="row"><button type="button" class="btn primary" data-act="v-start" data-m="${V.mode}">Noch eine Runde</button><button type="button" class="btn" data-act="v-home">Zum Vokabeltrainer</button></div></section>`;
+  }
+  const head = `<section class="card"><div class="tbar"><b>Vokabeltrainer · ${{"de-en":"Deutsch → Englisch","en-de":"Englisch → Deutsch",listen:"Anhören und schreiben",cards:"Karteikarten"}[V.mode]}</b><span class="small muted">Wort ${V.idx+1} von ${n}</span></div><div class="bar"><i style="width:${Math.round(V.idx/n*100)}%"></i></div></section>`;
+  const speakBtn = `<button type="button" class="btn sm" data-act="v-say" aria-label="Englisch anhören">🔊 Anhören</button>`;
+  let shown = "", target = "", lang = "en";
+  if (V.mode === "de-en"){ shown = `<p class="qtext" style="font-size:1.8rem;font-family:var(--f-display)">${esc(v.de)}</p>`; target = v.en; }
+  else if (V.mode === "en-de"){ shown = `<div class="row"><p class="qtext" style="font-size:1.8rem;font-family:var(--f-display)">${esc(v.en)}</p>${speakBtn}</div>`; target = v.de; lang = "de"; }
+  else if (V.mode === "listen"){ shown = `<div class="row">${speakBtn}<span class="muted">Hör zu und schreibe das englische Wort.</span></div>`; target = v.en; }
+  else {
+    return head + `<section class="card center"><p class="muted small">${esc(v.topic || "")}</p><p class="qtext" style="font-size:1.9rem;font-family:var(--f-display)">${esc(v.de)}</p>
+      ${V.state === "shown" ? `<p class="given" style="font-size:2.2rem">${esc(v.en)}</p>${speakBtn}<div class="row"><button type="button" class="btn primary" data-act="v-self" data-ok="1">Gewusst</button><button type="button" class="btn red" data-act="v-self" data-ok="0">Nicht gewusst</button></div>`
+        : `<button type="button" class="btn primary" data-act="v-flip">Aufdecken</button>`}</section>`;
+  }
+  const fb = V.state == null ? "" : V.state ? `<div class="fbok"><p><b>Richtig!</b> ${esc(v.en)} = ${esc(v.de)}</p></div>` : `<div class="fbno"><p><b>Fast!</b> Richtig ist: <b>${esc(lang === "en" ? v.en : v.de)}</b>${V.mode === "listen" ? " (" + esc(v.de) + ")" : ""}</p></div>`;
+  return head + `<section class="card"><p class="muted small">${esc(v.topic || "")}</p>${shown}
+    <label class="field"><span class="muted small">${lang === "en" ? "Auf Englisch" : "Auf Deutsch"}</span><input id="vin" class="inp short" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(V.ans)}" ${V.state != null ? "disabled" : ""}></label>
+    ${fb}
+    <div class="row">${V.state == null ? `<button type="button" class="btn primary" data-act="v-check">Prüfen</button><button type="button" class="btn ghost sm" data-act="v-skip">Weiß ich nicht</button>` : `<button type="button" class="btn primary" data-act="v-next">Weiter ›</button>${V.mode !== "en-de" ? speakBtn : ""}`}</div></section>
+  <div class="row" style="justify-content:center"><button type="button" class="btn ghost sm" data-act="v-quit">Runde beenden</button></div>`;
+}
+function vCheck(skip){
+  const V = S.voc, v = vCur(); if (!v || V.state != null) return;
+  const lang = V.mode === "en-de" ? "de" : "en";
+  const ok = !skip && vMatch(V.ans, lang === "en" ? v.en : v.de, lang);
+  V.state = ok; V.res[v.id] = ok;
+  if (V.mode !== "en-de") sayWord(vAlts(v.en)[0]);
+  render();
+}
+async function vSave(){
+  const res = {...S.voc.res}; if (!Object.keys(res).length) return;
+  const today = new Date(); today.setHours(12,0,0,0);
+  try{
+    await mutate(d => { for (const v of (d.vocab || [])) if (v.id in res){
+      v.box = res[v.id] ? Math.min(5, (v.box || 1) + 1) : 1;
+      const due = new Date(today); due.setDate(due.getDate() + BOX_DAYS[v.box]); v.due = isoDay(due);
+      v.seen = (v.seen || 0) + 1; if (res[v.id]) v.ok = (v.ok || 0) + 1; } });
+    S.saveErr = ""; S.voc.res = {};
+  }catch(e){ S.saveErr = driveErr(e); }
+  if (S.view === "vtrain") render();
+}
+function vocabDedupe(list){ const seen = new Set(); return list.filter(v => { const k = vNorm(v.en, "en") + "|" + vNorm(v.de, "de"); if (!v.en || !v.de || seen.has(k)) return false; seen.add(k); return true; }); }
+function cleanVocab(arr, topic){
+  return (Array.isArray(arr) ? arr : []).map(x => ({en: String((x && (x.en || x.englisch)) || "").trim().slice(0, 60), de: String((x && (x.de || x.deutsch)) || "").trim().slice(0, 60), topic: String((x && (x.topic || x.thema)) || topic || "Sonstige").trim().slice(0, 40)})).filter(x => x.en && x.de);
+}
+function addVocab(d, items){
+  d.vocab = d.vocab || [];
+  const have = new Set(d.vocab.map(v => vNorm(v.en, "en") + "|" + vNorm(v.de, "de")));
+  let n = 0;
+  for (const x of vocabDedupe(items)){ const k = vNorm(x.en, "en") + "|" + vNorm(x.de, "de"); if (have.has(k)) continue; have.add(k); d.vocab.push({id: rid() + rid(), en:x.en, de:x.de, topic:x.topic, box:1, due:isoDay(new Date())}); n++; }
+  return n;
+}
+async function collectVocabAI(){
+  S.vBusy = true; S.vAdminMsg = ""; render();
+  try{
+    const mats = D().materials.filter(m => m.subject === "Englisch").map(m => ({thema: m.topic, bereich: areaOf(m), merksaetze: m.keyPoints || [], fragen: (m.questions || []).map(q => [q.prompt, q.text, q.options && q.options.join(" | "), qAnswer(q)].filter(Boolean).join(" → "))}));
+    if (!mats.length) throw {code:"material", message:"Es gibt noch kein Englisch-Material."};
+    const prompt = `Sammle aus diesem Englisch-Unterrichtsmaterial einer 4. Grundschulklasse alle Vokabeln, die das Kind lernen soll (Einzelwörter oder kurze feste Ausdrücke, z. B. "autumn", "go swimming", "Monday"). Gib zu jedem Wort die deutsche Bedeutung und ein kurzes Thema an (z. B. "Seasons", "Months", "Days", "School"). Englische Nomen ohne Artikel, deutsche Nomen mit Artikel (z. B. "der Herbst"). Mehrere richtige Bedeutungen mit "/" trennen. Keine Sätze, keine Namen.
+Material (JSON):
+${JSON.stringify(mats).slice(0, 60000)}
+Antworte nur mit einem JSON-Objekt: {"vokabeln":[{"en":"autumn","de":"der Herbst","topic":"Seasons"}]}`;
+    const out = await askAI([{text: prompt}], 0.2);
+    const items = cleanVocab(out && (out.vokabeln || out.vocab));
+    if (!items.length) throw {code:"json"};
+    await refreshIfNeeded();
+    let n = 0; await mutate(d => { n = addVocab(d, items); });
+    S.vAdminMsg = `Fertig: ${n} neue Vokabeln übernommen.`;
+  }catch(e){ S.vAdminMsg = aiErr(e); }
+  S.vBusy = false; render();
+}
+function pVocab(){
+  const all = vocabList(), topics = vTopics();
+  return `<section class="card"><h2>Vokabeln</h2><p class="muted small">Diese Wörter übt dein Sohn im Vokabeltrainer (Fach Englisch). Neue Englisch-Blätter liefern ihre Vokabeln automatisch mit.</p>
+    <div class="row"><button type="button" class="btn sm" data-act="v-collect" ${S.vBusy ? "disabled" : ""}>${S.vBusy ? "KI sammelt …" : "Vokabeln aus Englisch-Material sammeln (KI)"}</button></div>
+    ${S.vAdminMsg ? `<p class="${/^Fertig|^Gespeichert/.test(S.vAdminMsg) ? "notice" : "err"} small">${esc(S.vAdminMsg)}</p>` : ""}
+    <div class="grid2"><div class="field"><label for="vaEn">Englisch</label><input id="vaEn" class="fin" autocomplete="off" placeholder="z. B. rabbit"></div><div class="field"><label for="vaDe">Deutsch</label><input id="vaDe" class="fin" autocomplete="off" placeholder="z. B. das Kaninchen"></div></div>
+    <div class="field"><label for="vaTopic">Thema</label><input id="vaTopic" class="fin" list="vaTopics" placeholder="z. B. Animals"><datalist id="vaTopics">${topics.map(t => `<option value="${esc(t)}">`).join("")}</datalist></div>
+    <div class="row"><button type="button" class="btn primary sm" data-act="v-add">Vokabel hinzufügen</button><span class="muted small">Mehrere Bedeutungen mit / trennen, z. B. „mum / mother“.</span></div></section>
+  ${topics.map(t => { const vs = all.filter(v => (v.topic || "Sonstige") === t);
+    return `<section class="card"><div class="tbar"><h3>${esc(t)}</h3><span class="small muted">${vs.length} Wörter</span></div><div>${vs.map(v => `<div class="qprev"><div class="grow"><span><b>${esc(v.en)}</b> = ${esc(v.de)}</span><span class="small muted">Fach ${v.box || 1}${v.seen ? " · " + (v.ok || 0) + " von " + v.seen + " gewusst" : ""}</span></div><button type="button" class="btn ghost sm" data-act="v-del" data-v="${v.id}">Löschen</button></div>`).join("")}</div></section>`; }).join("")}`;
+}
+
 /* ---------- Bedienung ---------- */
+let quizTimer = null;
 function startTest(){
-  const qs = buildTest(S.subject, S.topic); if (!qs.length) return;
-  S.test = {subject:S.subject, topic:S.topic, qs, answers:qs.map(() => null), idx:0, confirm:false};
+  const T = S.plan; const qs = buildTest(S.subject, T.mats, T.len); if (!qs.length) return;
+  S.test = {subject:S.subject, label:T.label, area:T.area, len:T.len || "normal", matId:T.matId || null, qs, answers:qs.map(() => null), idx:0, confirm:false, start:Date.now()};
+  clearInterval(quizTimer); quizTimer = setInterval(() => { if (S.view !== "quiz" || !S.test) return clearInterval(quizTimer); const c = document.getElementById("quizClock"); const L = LENGTHS[S.test.len]; if (c){ const m = Math.floor((Date.now() - S.test.start)/60000); c.textContent = `${m} von ${L.min} Min.`; } }, 20000);
   go("quiz");
 }
 async function act(b){
   const a = b.dataset.act, t = S.test;
   switch (a){
-    case "home": if (["quiz","grading","setup","signin","loading","aikey"].includes(S.view) || (S.view === "prep" && b.classList.contains("brand") && S.prep && S.prep.idx < S.prep.steps.length)) return; go("home"); break;
+    case "home": if (["quiz","grading","setup","signin","loading","aikey","hear","readp"].includes(S.view) || (S.view === "prep" && b.classList.contains("brand") && S.prep && S.prep.idx < S.prep.steps.length)) return; go("home"); break;
     case "parent": S.pinIn = ""; S.pinBad = false; go(D().settings.pin ? "gate" : "parent"); if (S.view === "parent") enterParent(); break;
     case "subject": S.subject = b.dataset.s; go("topics"); break;
-    case "topic": S.topic = b.dataset.t || null; go("intro"); break;
-    case "back-topics": go("topics"); break;
+    case "area": S.area = b.dataset.a; S.selMats = null; go("area"); break;
+    case "back-topics": stopSpeak(); go("topics"); break;
+    case "back-area": go("area"); break;
+    case "subject-all": S.plan = {mats:null, area:"__alle__", label:"Alle Themenbereiche", len:b.dataset.len || "normal"}; go("intro"); break;
+    case "mats-all": { const a = catalog().find(x => x.key === S.subject).areas.find(x => x.area === S.area); S.selMats = a.mats.map(m => m.id); render(); break; }
+    case "mats-none": S.selMats = []; render(); break;
+    case "area-start": { const a = catalog().find(x => x.key === S.subject).areas.find(x => x.area === S.area); const whole = S.selMats.length === a.mats.length;
+      S.plan = {mats:[...S.selMats], area:S.area, len:b.dataset.len || "normal", label: whole ? S.area : `${S.area} (Auswahl: ${S.selMats.length} ${S.selMats.length === 1 ? "Blatt" : "Blätter"})`}; go("intro"); break; }
+    case "sheet-kurz": { const m = D().materials.find(x => x.id === b.dataset.m); if (!m) return; S.plan = {mats:[m.id], area:S.area, len:"kurz", matId:m.id, label:sheetName(m)}; go("intro"); break; }
     case "start": case "again": refreshIfNeeded(); startTest(); break;
     case "mc": t.answers[t.idx] = Number(b.dataset.i); t.confirm = false; render(); break;
     case "jump": t.idx = Number(b.dataset.i); t.confirm = false; render(); break;
@@ -1083,7 +1530,7 @@ async function act(b){
     case "confirm-no": { const i = t.answers.findIndex(isEmpty); t.confirm = false; if (i >= 0) t.idx = i; render(); break; }
     case "abort": t.abort = true; render(); break;
     case "abort-no": t.abort = false; render(); break;
-    case "abort-yes": S.test = null; go("topics"); break;
+    case "abort-yes": S.test = null; go(S.plan && S.plan.area && S.plan.area !== "__alle__" ? "area" : "topics"); break;
     case "regrade": grade(false); break;
     case "grade-without": grade(true); break;
     case "retry-save": await refreshIfNeeded(); saveResult(S.last); break;
@@ -1123,6 +1570,53 @@ async function act(b){
     case "imp-open": { await refreshIfNeeded(); const f = (S.add.inbox || []).find(x => x.id === b.dataset.id); if (f) openImport(f); break; }
     case "imp-do": await refreshIfNeeded(); doImport(); break;
     case "imp-cancel": S.imp = null; S.impErr = ""; render(); break;
+    case "areas-ai": await refreshIfNeeded(); sortAreasAI(); break;
+    case "area-edit": { S.areaEdit = S.areaEdit || {}; const m = D().materials.find(x => x.id === b.dataset.m); S.areaEdit[b.dataset.m] = m ? areaOf(m) : ""; render(); break; }
+    case "area-cancel": delete S.areaEdit[b.dataset.m]; render(); break;
+    case "area-save": { const id = b.dataset.m, v = String(S.areaEdit[id] || "").trim(); if (!v) return;
+      await refreshIfNeeded();
+      try{ await mutate(d => { const m = d.materials.find(x => x.id === id); if (m) m.area = v; }); delete S.areaEdit[id]; S.matMsg = "Gespeichert."; }catch(e){ S.matMsg = driveErr(e); }
+      render(); break; }
+    case "lit": S.litKind = b.dataset.k; S.litErr = ""; S.subject = "Deutsch"; go("lit"); break;
+    case "lit-new": createLit(S.litKind); break;
+    case "lit-open": { const t = (D().texts || []).find(x => x.id === b.dataset.t); if (!t) return; startLitTest(t);
+      if (t.kind === "hoeren"){ S.hear = {textId:t.id, phase:"intro"}; go("hear"); }
+      else { S.readTextId = t.id; go("readp"); clearInterval(readTimer); readTimer = setInterval(() => { if (S.view !== "readp") return clearInterval(readTimer); const c = document.getElementById("quizClock"); if (c) c.textContent = `${Math.floor((Date.now() - S.test.start)/60000)} von ${LIT.lesen.min} Min.`; }, 20000); }
+      break; }
+    case "hear-go": hearPlay(1); break;
+    case "hear-next": stopSpeak();
+      if (S.hear.phase === "listen1"){ S.hear.phase = "read"; S.hear.readStart = Date.now(); render(); window.scrollTo(0,0);
+        clearInterval(readTimer); readTimer = setInterval(() => { if (S.view !== "hear" || S.hear.phase !== "read") return clearInterval(readTimer); const c = document.getElementById("readClock"); const left = Math.max(0, 120 - Math.floor((Date.now() - S.hear.readStart)/1000)); if (c) c.textContent = left ? `noch ${Math.ceil(left/60)} Min.` : "Zeit ist um, starte das zweite Hören."; }, 5000); }
+      else { S.hear.phase = "answer"; keepAwake(false); render(); window.scrollTo(0,0); }
+      break;
+    case "hear-go2": S.test.start = S.test.start || Date.now(); hearPlay(2); break;
+    case "hear-quit": stopSpeak(); keepAwake(false); S.test = null; go("lit"); break;
+    case "read-quit": S.test = null; go("lit"); break;
+    case "lmc": { const qi = Number(b.dataset.q); S.test.answers[qi] = Number(b.dataset.i); S.test.confirm = false; render(); break; }
+    case "lit-submit": if (S.test.answers.some(isEmpty)){ S.test.confirm = true; render(); } else { stopSpeak(); keepAwake(false); await refreshIfNeeded(); grade(false); } break;
+    case "lit-submit-force": stopSpeak(); keepAwake(false); await refreshIfNeeded(); grade(false); break;
+    case "confirm-no-lit": S.test.confirm = false; render(); break;
+    case "vocab": S.subject = "Englisch"; S.vMsg = ""; go("vocab"); break;
+    case "v-home": go("vocab"); break;
+    case "v-topic": S.vTopic = b.dataset.t || ""; render(); break;
+    case "v-start": vStart(b.dataset.m); break;
+    case "v-say": vSay(); break;
+    case "v-check": vCheck(false); break;
+    case "v-skip": vCheck(true); break;
+    case "v-flip": S.voc.state = "shown"; sayWord(vAlts(vCur().en)[0]); render(); break;
+    case "v-self": S.voc.res[vCur().id] = b.dataset.ok === "1"; S.voc.idx++; S.voc.state = null; render(); if (S.voc.idx >= S.voc.items.length){ await refreshIfNeeded(); vSave(); } break;
+    case "v-next": S.voc.idx++; S.voc.state = null; S.voc.ans = "";
+      if (S.voc.idx < S.voc.items.length && (S.voc.mode === "listen" || S.voc.mode === "en-de")) vSay();
+      render(); if (S.voc.idx >= S.voc.items.length){ await refreshIfNeeded(); vSave(); } break;
+    case "v-quit": S.voc.idx = S.voc.items.length; render(); await refreshIfNeeded(); vSave(); break;
+    case "v-save": await refreshIfNeeded(); vSave(); break;
+    case "v-collect": await refreshIfNeeded(); collectVocabAI(); break;
+    case "v-add": { const en = document.getElementById("vaEn").value.trim(), de = document.getElementById("vaDe").value.trim(), tp = document.getElementById("vaTopic").value.trim() || "Sonstige";
+      if (!en || !de){ S.vAdminMsg = "Bitte Englisch und Deutsch ausfüllen."; return render(); }
+      await refreshIfNeeded();
+      try{ let n = 0; await mutate(d => { n = addVocab(d, [{en, de, topic:tp}]); }); S.vAdminMsg = n ? "Gespeichert." : "Diese Vokabel gibt es schon."; }catch(e){ S.vAdminMsg = driveErr(e); }
+      render(); break; }
+    case "v-del": { const id = b.dataset.v; await refreshIfNeeded(); try{ await mutate(d => { d.vocab = (d.vocab || []).filter(v => v.id !== id); }); }catch(e){ S.vAdminMsg = driveErr(e); } render(); break; }
     case "res-open": S.openRes = S.openRes === b.dataset.r ? null : b.dataset.r; render(); break;
     case "save-settings": {
       const pin = document.getElementById("sPin").value.trim();
@@ -1133,6 +1627,10 @@ async function act(b){
       render(); break; }
     case "load-models": { const p = b.dataset.p; try{ S.models[p] = (await listModels(p, aiCfg().keys[p])).all; S.aiMsg = ""; }catch(e){ S.aiMsg = "Modelle konnten nicht geladen werden. Prüfe den Schlüssel."; } render(); break; }
     case "save-key": await refreshIfNeeded(); saveKey(b.dataset.p); break;
+    case "ai-test": S.aiTesting = true; S.aiMsg = ""; render();
+      try{ const r = await askAI([{text:'Antworte nur mit diesem JSON: {"ok":true}'}], 0); S.aiMsg = r && r.ok ? `Verbindung klappt. ${provName()} antwortet (Modell ${aiCfg().models[aiCfg().provider]}).` : `${provName()} antwortet, aber unerwartet.`; }
+      catch(e){ S.aiMsg = aiErr(e); }
+      S.aiTesting = false; render(); break;
     case "aikey-p": S.aikeyP = b.dataset.p; S.keyErr = ""; render(); break;
     case "ai-use": { const p = b.dataset.p; await refreshIfNeeded();
       try{ await mutate(d => { const a = aiCfg(d); a.provider = p; d.ai = a; }); S.aiMsg = `Gespeichert. Die App nutzt jetzt ${PROVIDERS[p].name}.`; }catch(e){ S.aiMsg = driveErr(e); }
@@ -1152,16 +1650,21 @@ function enterParent(){ if (!S.ttDraft) S.ttDraft = JSON.parse(JSON.stringify(D(
 $app.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (b && !b.disabled) act(b); });
 $app.addEventListener("input", e => {
   const el = e.target;
+  if (el.dataset.lq != null && S.test){ S.test.answers[Number(el.dataset.lq)] = el.value; return; }
+  if (el.id === "vin" && S.voc){ S.voc.ans = el.value; return; }
   if (el.id === "ans" && S.view === "prep" && S.prep){ S.prep.answers[S.prep.idx] = el.value; const c = $app.querySelector('[data-act="prep-check"]'); if (c) c.disabled = !el.value.trim(); }
   else if (el.id === "ans" && S.test){ S.test.answers[S.test.idx] = el.value; const d = $app.querySelector(`.dot[data-i="${S.test.idx}"]`); if (d) d.classList.toggle("done", !!el.value.trim()); }
   else if (el.id === "hint") S.add.hint = el.value;
   else if (el.id === "dTopic") S.add.draft.topic = el.value;
+  else if (el.id === "dArea") S.add.draft.area = el.value;
+  else if (el.dataset.areaedit) S.areaEdit[el.dataset.areaedit] = el.value;
   else if (el.id === "dTitle") S.add.draft.title = el.value;
   else if (el.id === "dDate"){ S.add.draft.lessonDate = el.value; S.add.draft.dateSource = "hand"; }
 });
 $app.addEventListener("change", async e => {
   const el = e.target;
-  if (el.dataset.pick){ if (el.checked) S.add.sel[el.dataset.pick] = true; else delete S.add.sel[el.dataset.pick]; render(); }
+  if (el.dataset.mat){ const id = el.dataset.mat; S.selMats = el.checked ? [...new Set([...S.selMats, id])] : S.selMats.filter(x => x !== id); render(); }
+  else if (el.dataset.pick){ if (el.checked) S.add.sel[el.dataset.pick] = true; else delete S.add.sel[el.dataset.pick]; render(); }
   else if (el.id === "localFiles"){ S.add.local.push(...el.files); render(); }
   else if (el.id === "importFile" && el.files[0]){ const f = el.files[0]; S.impErr = ""; try{ S.imp = parseImport(await f.text(), f.name, null); }catch(err){ S.impErr = aiErr(err); } render(); }
   else if (el.id === "addGrade"){ S.add.grade = el.value; render(); }
@@ -1170,6 +1673,7 @@ $app.addEventListener("change", async e => {
   else if (el.dataset.model){ const p = el.dataset.model, m = el.value; await refreshIfNeeded(); try{ await mutate(d => { const x = aiCfg(d); x.models[p] = m; d.ai = x; }); S.aiMsg = `Gespeichert. ${PROVIDERS[p].name}-Modell: ${m}`; }catch(err){ S.aiMsg = driveErr(err); } render(); }
 });
 $app.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "vin" && S.voc){ e.preventDefault(); if (S.voc.state == null){ if (S.voc.ans.trim()) vCheck(false); } else act({dataset:{act:"v-next"}}); return; }
   if (e.key !== "Enter" || e.target.id !== "ans" || e.target.tagName !== "INPUT") return;
   if (S.view === "prep" && S.prep){ e.preventDefault(); if (!isEmpty(S.prep.answers[S.prep.idx])) prepCheck(false); }
   else if (S.view === "quiz" && S.test && S.test.idx < S.test.qs.length - 1){ e.preventDefault(); S.test.idx++; render(); }
